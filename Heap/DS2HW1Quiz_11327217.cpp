@@ -240,6 +240,9 @@ public:
     DEAP() {
         heap.push_back(Node(-1, -1)); // 根節點 沒放東西
     }
+    int getSize() {
+      return heap.size();
+    }
 
     // 恢復你原本完全正確的 Insert 邏輯
     void insert(int id, int count) {
@@ -402,17 +405,7 @@ Node deleteMax() {
 
     return maxNode;
 }
-std::vector<Node> popTopKMax(int k) {
-        std::vector<Node> result;
-        for (int i = 0; i < k; i++) {
-            if (heap.size() > 1) {
-                result.push_back(deleteMax());
-            } else {
-                break; 
-            }
-        }
-        return result;
-    }
+
 
     void reSet() { 
         heap.clear(); 
@@ -500,7 +493,7 @@ class UniversityCatalog {
 
   }
   bool fetchFile(int cmd) {
-    if (deap.getHeap().size() >= 1 && cmd == 3) deap.reSet();
+    if (deap.getSize() >= 1 && cmd == 3) deap.reSet();
     std::ifstream in;
     while (1) {
         std::cout << "Input a file number ([0] Quit): ";
@@ -560,7 +553,7 @@ class UniversityCatalog {
                             teacherCount, lastYearGraduatesCount, cityNum,
                             cityName,typeNum, systemType);
         g.setId(count_id);
-        
+        //    
         if (cmd == 1) {
           minHeap.insert(count_id, stoi(lastYearGraduatesCount));
         } else if (cmd == 2) {
@@ -570,17 +563,17 @@ class UniversityCatalog {
         } 
         
         info.push_back(g); 
-        if (cmd == 3) {
-          store_deap_info.clear();
-          for (int i = 0; i < info.size(); i++) {
-            store_deap_info.push_back(info[i]);
-          }
-          
-        }
+       
         count_id = count_id + 1;
     }
+     
 
     in.close();
+    if (cmd == 3) {
+      store_deap_info.clear();
+      store_deap_info = info;
+
+    }
     return true;
 }
 
@@ -599,41 +592,46 @@ void doTask(int cmd) { // this is for task 1 ~ 3
 }
 
 void doTaskFour() {
-  if (deap.getHeap().size() == 1) {
+  if (deap.getSize() == 1) {
     std::cout << "### Execute command 3 first! ###\n";
     return;
   }
 
   int value;
-  std::cout << "Enter the value of K in [1," << deap.getHeap().size() - 1 << "]: ";
+  std::cout << "Enter the value of K in [1," << deap.getSize() - 1 << "]: ";
   std::cin >> value;
-  if (value > deap.getHeap().size() - 1 || value < 1) {
+  if (value > deap.getSize() - 1 || value < 1) {
     std::cout << "\n### The value of K is out of range! ###\n";
     return;
   }
-  std::vector<Node> result = deap.popTopKMax(value);
-  for (int i = 0; i < result.size(); i++) {
-    for (int j = 0; j < store_deap_info.size(); j++) {
-      if (result[i].id == store_deap_info[j].getId()) { 
-        std::cout << "Top";
-        if (i + 1 >= 1000) std::cout << std::setw(5) << i + 1 << ": ";
-        else if (i + 1 < 1000) std::cout << std::setw(4) << i + 1 << ": ";      // 設定寬度為 4，讓數字右對齊
-        std::cout << "[" << store_deap_info[j].getId() << "] "       // 輸出 ID 與中括號
-              << store_deap_info[j].getSchoolName()      // 學校系所
-              << store_deap_info[j].getDeptName() << ", "
-              << store_deap_info[j].getDaytime() << " "    // D 日
-              << store_deap_info[j].getEducationDivision()<< ", "
-              << store_deap_info[j].getLevel()<< ", "          // B 學士
-              << result[i].lastYearGraduatesCount  // 畢業人數
-              << std::endl;
-        break;
-      }
+  
+  // popTopKMax 迴圈
+  for (int i = 0; i < value; i++) {
+    if (deap.getSize() > 1) {
+      Node currentMax = deap.deleteMax();
+      
+      std::cout << "Top";
+      // 完全保留你原本的排版邏輯
+      if (i + 1 >= 1000) std::cout << std::setw(5) << i + 1 << ": ";
+      else if (i + 1 < 1000) std::cout << std::setw(4) << i + 1 << ": ";      
+      
+      std::cout << "[" << store_deap_info[currentMax.id - 1].getId() << "] "       
+            << store_deap_info[currentMax.id - 1].getSchoolName()      
+            << store_deap_info[currentMax.id - 1].getDeptName() << ", "
+            << store_deap_info[currentMax.id - 1].getDaytime() << " "    
+            << store_deap_info[currentMax.id - 1].getEducationDivision()<< ", "
+            << store_deap_info[currentMax.id - 1].getLevel()<< ", "          
+            << currentMax.lastYearGraduatesCount  
+            << std::endl;
+            
+
+     
+        
+      
+    } else {
+      break; 
     }
-    
   }
-
-
-
 }
 };
 int main() {
