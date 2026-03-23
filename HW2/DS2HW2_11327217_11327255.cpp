@@ -45,37 +45,33 @@ class GraduateInfo{
   std::string schoolName;
   std::string deptCode;
   std::string deptName;
-  std::string daytime;
   std::string educationDivision; // 進修別
   std::string level;
   std::string studentCount;
   std::string teacherCount;
   std::string lastYearGraduatesCount;
-  std::string cityNum;
   std::string cityName;
-  std::string typeNum;
   std::string systemType;
 
   public:
     void setGraduateInfo(std::string schoolCode, std::string schoolName, std::string deptCode, 
-        std::string deptName, std::string daytime, std::string educationDivision,
+        std::string deptName, std::string educationDivision,
         std::string level,
-        std::string studentCount, std::string teacherCount, std::string lastYearGraduatesCount, std::string cityNum,
-        std::string cityName,std::string typeNum, std::string systemType) {
+        std::string studentCount, std::string teacherCount, std::string lastYearGraduatesCount, 
+        std::string cityName, std::string systemType) {
       
       this->schoolCode = schoolCode;
       this->schoolName = schoolName;
       this->deptCode = deptCode;
       this->deptName = deptName;
-      this->daytime = daytime;
+      
       this->educationDivision = educationDivision;
       this->level = level;
       this->studentCount = studentCount;
       this->teacherCount = teacherCount;
       this->lastYearGraduatesCount = lastYearGraduatesCount;
-      this->cityNum = cityNum;
+      
       this->cityName = cityName;
-      this->typeNum = typeNum;
       this->systemType = systemType;
     } 
     void setId(int id) {this->id = id; }
@@ -86,7 +82,6 @@ class GraduateInfo{
     std::string getDeptCode() { return this->deptCode; }
     std::string getDeptName() { return this->deptName; }
 
-    std::string getDaytime() { return this-> daytime; }
     std::string getEducationDivision() { return this-> educationDivision;}
     std::string getLevel() {return this->level; }
     std::string getLastYearGraduatesCount;
@@ -145,31 +140,28 @@ class UniversityCatalog {
         std::stringstream ss(line);
 
         std::string schoolCode, schoolName, deptCode, deptName,
-                    daytime, educationDivision, level, studentCount,
-                    teacherCount, lastYearGraduatesCount, cityNum,
-                    cityName,typeNum, systemType;
+                    educationDivision, level, studentCount,
+                    teacherCount, lastYearGraduatesCount, 
+                    cityName, systemType;
 
         std::getline(ss, schoolCode, '\t');
         std::getline(ss, schoolName, '\t');
         std::getline(ss, deptCode, '\t');
         std::getline(ss, deptName, '\t');
-        std::getline(ss, daytime, ' ');
         std::getline(ss, educationDivision, '\t');
         std::getline(ss, level, '\t');
         std::getline(ss, studentCount, '\t');
         std::getline(ss, teacherCount, '\t');
         std::getline(ss, lastYearGraduatesCount, '\t');
-        std::getline(ss,  cityNum, ' ');
         std::getline(ss, cityName, '\t');
-        std::getline(ss, typeNum, ' ');
         std::getline(ss, systemType);
 
         
         GraduateInfo g;
         g.setGraduateInfo( schoolCode, schoolName, deptCode, deptName,
-                            daytime, educationDivision, level, studentCount,
-                            teacherCount, lastYearGraduatesCount, cityNum,
-                            cityName,typeNum, systemType);
+                             educationDivision, level, studentCount,
+                            teacherCount, lastYearGraduatesCount, 
+                            cityName, systemType);
         g.setId(count_id);
      
         if (cmd == 1) {
@@ -223,7 +215,7 @@ int main() {
     } else {
       printf("\n");
       if (cmd == 4) {
-        uc.doTaskFour();
+       
       }
       else if (uc.fetchFile(cmd)) {
         uc.doTask(cmd);
