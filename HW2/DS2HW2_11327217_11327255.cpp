@@ -1,5 +1,5 @@
 // 11327217 蔡易勳   11327255許頌恩
-
+// demo link: https://dsds.lab214b.uk:5001/DS/DS2HW2DEMO/DEMOb
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -32,6 +32,41 @@ struct TreeNode {
     }
 };
 
+class GraduateInfo{ 
+ private:
+  int id;
+  string schoolCode, schoolName, deptCode, deptName;
+  string educationDivision, level, studentCount;
+  string teacherCount, lastYearGraduatesCount, cityName, systemType;
+
+ public:
+    void setGraduateInfo(string schoolCode, string schoolName, string deptCode, 
+        string deptName, string educationDivision, string level,
+        string studentCount, string teacherCount, string lastYearGraduatesCount, 
+        string cityName, string systemType) {
+      this->schoolCode = schoolCode;
+      this->schoolName = schoolName;
+      this->deptCode = deptCode;
+      this->deptName = deptName;
+      this->educationDivision = educationDivision;
+      this->level = level;
+      this->studentCount = studentCount;
+      this->teacherCount = teacherCount;
+      this->lastYearGraduatesCount = lastYearGraduatesCount;
+      this->cityName = cityName;
+      this->systemType = systemType;
+    } 
+    void setId(int id) { this->id = id; }
+
+    int getId() { return id; }
+    string getSchoolName() { return schoolName; }
+    string getDeptName() { return deptName; }
+    string getEducationDivision() { return educationDivision; }
+    string getLevel() { return level; }
+    string getStudentCount() { return studentCount; }
+    string getLastYearGraduatesCount() { return lastYearGraduatesCount; }
+};
+
 /// NOTE: 從1號開始的唯一『序號』!
 
 struct AVLNode {
@@ -51,7 +86,7 @@ struct AVLNode {
 };
 
 class AVLTree {
-private:
+ private:
     AVLNode* root;
 
     int getMax(int a, int b) {
@@ -74,7 +109,7 @@ private:
         return getHeight(n->left) - getHeight(n->right);
     }
 
-    // --- 旋轉邏輯 (與之前完全相同，只是指標型態換成 AVLNode*) ---
+    
     AVLNode* rotateRR(AVLNode* x) {
         AVLNode* y = x->right;
         x->right = y->left;
@@ -171,16 +206,25 @@ public:
     }
 
     // 3. 找出樹根內的所有資料
-    void printRootData() {
-        if (root == nullptr) {
-            std::cout << "The tree is empty." << std::endl;
-            return;
-        }
-        std::cout << "Root deptName: " << root->deptName << "\nRoot IDs: ";
+    void printRootData(std::vector<GraduateInfo> temp_info) {
+        cout << "Tree height = " << getTreeHeight() << endl;
+        cout << "Number of nodes = " << getTotalNodes() << endl;
+       
         for (int i = 0; i < root->ids.size(); i++) {
-            std::cout << root->ids[i] << " ";
+          std::cout << (i + 1) << ": [" << root->ids[i] << "] " 
+                    << temp_info[root->ids[i] - 1].getSchoolName() << ", " 
+                    << temp_info[root->ids[i] - 1].getDeptName() << ", " 
+                    << temp_info[root->ids[i] - 1].getEducationDivision() << ", " 
+                    << temp_info[root->ids[i] - 1].getLevel() << ", " 
+                    << temp_info[root->ids[i] - 1].getStudentCount() << ", " 
+                    << temp_info[root->ids[i] - 1].getLastYearGraduatesCount() << std::endl;
         }
         std::cout << std::endl;
+    }
+
+    void clear() {
+        clearTree(root);
+        root = nullptr;
     }
 };
 
@@ -317,40 +361,7 @@ public:
 };
 
 
-class GraduateInfo{ 
- private:
-  int id;
-  string schoolCode, schoolName, deptCode, deptName;
-  string educationDivision, level, studentCount;
-  string teacherCount, lastYearGraduatesCount, cityName, systemType;
 
- public:
-    void setGraduateInfo(string schoolCode, string schoolName, string deptCode, 
-        string deptName, string educationDivision, string level,
-        string studentCount, string teacherCount, string lastYearGraduatesCount, 
-        string cityName, string systemType) {
-      this->schoolCode = schoolCode;
-      this->schoolName = schoolName;
-      this->deptCode = deptCode;
-      this->deptName = deptName;
-      this->educationDivision = educationDivision;
-      this->level = level;
-      this->studentCount = studentCount;
-      this->teacherCount = teacherCount;
-      this->lastYearGraduatesCount = lastYearGraduatesCount;
-      this->cityName = cityName;
-      this->systemType = systemType;
-    } 
-    void setId(int id) { this->id = id; }
-
-    int getId() { return id; }
-    string getSchoolName() { return schoolName; }
-    string getDeptName() { return deptName; }
-    string getEducationDivision() { return educationDivision; }
-    string getLevel() { return level; }
-    string getStudentCount() { return studentCount; }
-    string getLastYearGraduatesCount() { return lastYearGraduatesCount; }
-};
 
 
 class UniversityCatalog {
@@ -358,11 +369,17 @@ class UniversityCatalog {
   vector<GraduateInfo> info;
   Two_Three_Tree tree23;
   AVLTree avl_tree;
+  std::string last_txt_path; // 紀錄上一次讀的資料檔
+  std::string cur_txt_path;
   
  public:
   void reSet() {
     info.clear();
     tree23.clear();
+  }
+
+  int getInfoCount() {
+    return info.size();
   }
 
   bool fetchFile() {
@@ -379,6 +396,7 @@ class UniversityCatalog {
             cout << "\n### " << txt_path << " does not exist! ###\n\n";
             continue;
         }
+        cur_txt_path = txt_path;
         break;
     }
     
@@ -419,8 +437,6 @@ class UniversityCatalog {
         
         tree23.insert(sCount, count_id); 
         
-        
-        
         count_id++;
     }
     in.close();
@@ -456,7 +472,21 @@ void doTask(string cmd) {
         }
     }
   } else if (cmd == "2") {
-    // 任務二
+
+    if (cur_txt_path == last_txt_path) {
+      cout << "### AVL tree has been built. ###\n";
+    } else {
+      avl_tree.clear();
+      for (int i = 0; i < info.size(); i++) {
+        avl_tree.insert(info[i].getDeptName(), info[i].getId());
+      }
+      last_txt_path = cur_txt_path;
+    }
+
+   
+    avl_tree.printRootData(info);
+    
+
   } 
 }
 
@@ -467,7 +497,7 @@ int main() {
   
   while (true) {
     PrintTitle();
-    string cmd = ReadInput();
+    string cmd = ReadInput(); // demo防呆
     if (cmd == "0") { 
       return 0;
     } else if (cmd == "1"){
@@ -476,6 +506,11 @@ int main() {
         uc.doTask(cmd);
       }
     }  else if (cmd == "2"){ 
+      if (uc.getInfoCount() == 0) {
+        cout << "### Choose 1 first. ###\n";
+      } else {
+        uc.doTask(cmd);
+      }
 
     } else cout << "\nCommand does not exist!\n";
     cout << endl;  
