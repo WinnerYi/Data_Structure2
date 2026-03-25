@@ -1,6 +1,5 @@
 // 11327217 蔡易勳   11327255許頌恩
 
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -13,15 +12,141 @@ void SkipSpace(std::string &str);
 std::string ReadInput();
 
 /// NOTE: 從1號開始的唯一『序號』!
+
 struct Node {
-  int id;                    // 唯一『序號』（key）
-  int  studentCount;      
-  Node(int id, int studentCount) {
-    this->id = id;
-    this-> studentCount = studentCount;
-  } 
+    int id;               // 唯一『序號』（key）
+    int studentCount;      
+    int height;           // 紀錄節點高度
+    Node* left;
+    Node* right;
+
+    Node(int id, int studentCount) {
+        this->id = id;
+        this->studentCount = studentCount;
+        this->height = 1; // 新節點預設為 leaf，高度為 1
+        this->left = nullptr;
+        this->right = nullptr;
+    } 
 };
 
+class AVLTree {
+private:
+    Node* root;
+
+    // --- 新增：自訂的比較函式，取代 std::max ---
+    int getMax(int a, int b) {
+        return (a > b) ? a : b;
+    }
+
+    // 取得節點高度
+    int getHeight(Node* n) {
+        if (n == nullptr) return 0;
+        return n->height;
+    }
+
+    // 更新節點高度 (這裡改用我們自訂的 getMax)
+    void updateHeight(Node* n) {
+        if (n != nullptr) {
+            n->height = 1 + getMax(getHeight(n->left), getHeight(n->right));
+        }
+    }
+
+    // 計算平衡因子 (左子樹高度 - 右子樹高度)
+    int getBalance(Node* n) {
+        if (n == nullptr) return 0;
+        return getHeight(n->left) - getHeight(n->right);
+    }
+    
+    // 處理 RR Imbalance (向左旋轉)
+    Node* rotateRR(Node* x) {
+        Node* y = x->right;
+        x->right = y->left;
+        y->left = x;
+        
+        // 旋轉後更新高度
+        updateHeight(x);
+        updateHeight(y);
+        
+        return y; 
+    }
+
+    // 處理 LL Imbalance (向右旋轉)
+    Node* rotateLL(Node* x) {
+        Node* y = x->left;
+        x->left = y->right;
+        y->right = x;
+        
+        // 旋轉後更新高度
+        updateHeight(x);
+        updateHeight(y);
+        
+        return y;
+    }
+
+    // 處理 LR Imbalance
+    Node* rotateLR(Node* x) {
+        x->left = rotateRR(x->left);
+        return rotateLL(x);
+    }
+
+    // 處理 RL Imbalance
+    Node* rotateRL(Node* x) {
+        x->right = rotateLL(x->right);
+        return rotateRR(x);
+    }
+
+    // 內部遞迴 Insert 函式
+    Node* insertNode(Node* node, int id, int studentCount) {
+        if (node == nullptr) {
+            return new Node(id, studentCount);
+        }
+
+        if (id < node->id) {
+            node->left = insertNode(node->left, id, studentCount);
+        } else if (id > node->id) {
+            node->right = insertNode(node->right, id, studentCount);
+        } else {
+            return node;
+        }
+
+        // 更新當前節點高度
+        updateHeight(node);
+
+        // 檢查平衡因子
+        int balance = getBalance(node);
+
+        // LL Case
+        if (balance > 1 && id < node->left->id) {
+            return rotateLL(node);
+        }
+        
+        // RR Case
+        if (balance < -1 && id > node->right->id) {
+            return rotateRR(node);
+        }
+        
+        // LR Case
+        if (balance > 1 && id > node->left->id) {
+            return rotateLR(node);
+        }
+        
+        // RL Case
+        if (balance < -1 && id < node->right->id) {
+            return rotateRL(node);
+        }
+
+        return node;
+    }
+
+public:
+    AVLTree() {
+        root = nullptr;
+    }
+
+    void insert(int id, int studentCount) {
+        root = insertNode(root, id, studentCount);
+    }
+};
 
 void printHeap( std::vector <Node> heap, int cmd) {
  
@@ -32,9 +157,7 @@ class Two_Three_Tree {
   ///TODO:
 };
 
-class AVL_Tree {
-  ///TODO:
-};
+
 
 
 class GraduateInfo{ 
