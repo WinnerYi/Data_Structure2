@@ -23,153 +23,168 @@ struct DataEntry {
     }
 };
 
-struct TreeNode {
+struct TreeNode {  
     vector<DataEntry> entries;
     vector<TreeNode*> children; 
     bool isLeaf;
+  TreeNode() {
+        isLeaf = true;
+    }
+};
 
 /// NOTE: 從1號開始的唯一『序號』!
 
-struct Node {
-    int id;               // 唯一『序號』（key）
-    int studentCount;      
-    int height;           // 紀錄節點高度
-    Node* left;
-    Node* right;
+struct AVLNode {
+    std::string deptName;   // 科系名稱 (Key)
+    std::vector<int> ids;     // 儲存相同科系的所有序號
+    int height;
+    AVLNode* left;
+    AVLNode* right;
 
-    Node(int id, int studentCount) {
-        this->id = id;
-        this->studentCount = studentCount;
-        this->height = 1; // 新節點預設為 leaf，高度為 1
+    AVLNode(std::string deptName, int id) {
+        this->deptName = deptName;
+        this->ids.push_back(id); // 建立節點時存入第一筆序號
+        this->height = 1;
         this->left = nullptr;
         this->right = nullptr;
-    } 
+    }
 };
 
 class AVLTree {
 private:
-    Node* root;
+    AVLNode* root;
 
-    // --- 新增：自訂的比較函式，取代 std::max ---
     int getMax(int a, int b) {
         return (a > b) ? a : b;
     }
 
-    // 取得節點高度
-    int getHeight(Node* n) {
+    int getHeight(AVLNode* n) {
         if (n == nullptr) return 0;
         return n->height;
     }
 
-    // 更新節點高度 (這裡改用我們自訂的 getMax)
-    void updateHeight(Node* n) {
+    void updateHeight(AVLNode* n) {
         if (n != nullptr) {
             n->height = 1 + getMax(getHeight(n->left), getHeight(n->right));
         }
     }
 
-    // 計算平衡因子 (左子樹高度 - 右子樹高度)
-    int getBalance(Node* n) {
+    int getBalance(AVLNode* n) {
         if (n == nullptr) return 0;
         return getHeight(n->left) - getHeight(n->right);
     }
-    
-    // 處理 RR Imbalance (向左旋轉)
-    Node* rotateRR(Node* x) {
-        Node* y = x->right;
+
+    // --- 旋轉邏輯 (與之前完全相同，只是指標型態換成 AVLNode*) ---
+    AVLNode* rotateRR(AVLNode* x) {
+        AVLNode* y = x->right;
         x->right = y->left;
         y->left = x;
-        
-        // 旋轉後更新高度
         updateHeight(x);
         updateHeight(y);
-        
-        return y; 
-    }
-
-    // 處理 LL Imbalance (向右旋轉)
-    Node* rotateLL(Node* x) {
-        Node* y = x->left;
-        x->left = y->right;
-        y->right = x;
-        
-        // 旋轉後更新高度
-        updateHeight(x);
-        updateHeight(y);
-        
         return y;
     }
 
-    // 處理 LR Imbalance
-    Node* rotateLR(Node* x) {
+    AVLNode* rotateLL(AVLNode* x) {
+        AVLNode* y = x->left;
+        x->left = y->right;
+        y->right = x;
+        updateHeight(x);
+        updateHeight(y);
+        return y;
+    }
+
+    AVLNode* rotateLR(AVLNode* x) {
         x->left = rotateRR(x->left);
         return rotateLL(x);
     }
 
-    // 處理 RL Imbalance
-    Node* rotateRL(Node* x) {
+    AVLNode* rotateRL(AVLNode* x) {
         x->right = rotateLL(x->right);
         return rotateRR(x);
     }
 
-    // 內部遞迴 Insert 函式
-    Node* insertNode(Node* node, int id, int studentCount) {
+    // 內部遞迴 Insert
+    AVLNode* insertNode(AVLNode* node, std::string dept, int id) {
+        // 1. 找到空位，建立新節點
         if (node == nullptr) {
-            return new Node(id, studentCount);
+            return new AVLNode(dept, id);
         }
 
-        if (id < node->id) {
-            node->left = insertNode(node->left, id, studentCount);
-        } else if (id > node->id) {
-            node->right = insertNode(node->right, id, studentCount);
+        // 2. 比較字串大小決定走向
+        if (dept < node->deptName) {
+            node->left = insertNode(node->left, dept, id);
+        } else if (dept > node->deptName) {
+            node->right = insertNode(node->right, dept, id);
         } else {
-            return node;
+            // 3. 科系名稱相同！不新增節點，直接把序號加入原節點的 vector 中
+            // 因為是「依序號由小到大一筆一筆新增」，所以 push_back 就會是排好序的
+            node->ids.push_back(id);
+            return node; // 沒有新增節點，樹高不變，直接 return
         }
 
-        // 更新當前節點高度
+        // 更新高度與檢查平衡 (只有新增節點才會走到這裡)
         updateHeight(node);
-
-        // 檢查平衡因子
         int balance = getBalance(node);
 
-        // LL Case
-        if (balance > 1 && id < node->left->id) {
-            return rotateLL(node);
-        }
-        
-        // RR Case
-        if (balance < -1 && id > node->right->id) {
-            return rotateRR(node);
-        }
-        
-        // LR Case
-        if (balance > 1 && id > node->left->id) {
-            return rotateLR(node);
-        }
-        
-        // RL Case
-        if (balance < -1 && id < node->right->id) {
-            return rotateRL(node);
-        }
+        // 判斷並執行旋轉 (字串比較)
+        if (balance > 1 && dept < node->left->deptName) return rotateLL(node);
+        if (balance < -1 && dept > node->right->deptName) return rotateRR(node);
+        if (balance > 1 && dept > node->left->deptName) return rotateLR(node);
+        if (balance < -1 && dept < node->right->deptName) return rotateRL(node);
 
         return node;
     }
 
+    // 遞迴計算節點總數
+    int countNodes(AVLNode* node) {
+        if (node == nullptr) return 0;
+        return 1 + countNodes(node->left) + countNodes(node->right);
+    }
+
+    // 遞迴清空樹
+    void clearTree(AVLNode* node) {
+        if (node != nullptr) {
+            clearTree(node->left);
+            clearTree(node->right);
+            delete node;
+        }
+    }
+
 public:
-    AVLTree() {
-        root = nullptr;
+    AVLTree() { root = nullptr; }
+    ~AVLTree() { clearTree(root); }
+
+    void insert(std::string dept, int id) {
+        root = insertNode(root, dept, id);
     }
 
-    void insert(int id, int studentCount) {
-        root = insertNode(root, id, studentCount);
+    // --- 題目要求的三個最終輸出 ---
+
+    // 1. 找出整棵樹的樹高
+    int getTreeHeight() {
+        return getHeight(root);
+    }
+
+    // 2. 找出整棵樹的節點數
+    int getTotalNodes() {
+        return countNodes(root);
+    }
+
+    // 3. 找出樹根內的所有資料
+    void printRootData() {
+        if (root == nullptr) {
+            std::cout << "The tree is empty." << std::endl;
+            return;
+        }
+        std::cout << "Root deptName: " << root->deptName << "\nRoot IDs: ";
+        for (int i = 0; i < root->ids.size(); i++) {
+            std::cout << root->ids[i] << " ";
+        }
+        std::cout << std::endl;
     }
 };
 
-
-    TreeNode() {
-        isLeaf = true;
-    }
-};
+    
 
 struct SplitResult {
     DataEntry* promotedEntry = nullptr;
@@ -177,7 +192,7 @@ struct SplitResult {
 };
 
 class Two_Three_Tree {
-private:
+ private:
     TreeNode* root;
     int nodeCount;
 
@@ -342,6 +357,7 @@ class UniversityCatalog {
  private:
   vector<GraduateInfo> info;
   Two_Three_Tree tree23;
+  AVLTree avl_tree;
   
  public:
   void reSet() {
@@ -349,7 +365,7 @@ class UniversityCatalog {
     tree23.clear();
   }
 
-  bool fetchFile(int cmd) {
+  bool fetchFile() {
     ifstream in;
     while (1) {
         cout << "Input a file number ([0] Quit): ";
@@ -400,12 +416,10 @@ class UniversityCatalog {
         info.push_back(g); 
         int sCount = safeStoi(studentCount);
      
-        if (cmd == 1) {
-            tree23.insert(sCount, count_id); 
-        } 
-        else if (cmd == 2) {
-          // AVL tree insert (任務二)
-        } 
+        
+        tree23.insert(sCount, count_id); 
+        
+        
         
         count_id++;
     }
@@ -414,8 +428,8 @@ class UniversityCatalog {
 }
 
 
-void doTask(int cmd) { 
-  if (cmd == 1) {
+void doTask(string cmd) { 
+  if (cmd == "1") {
     cout << "Tree height = " << tree23.getHeight() << endl;
     cout << "Number of nodes = " << tree23.getNodeCount() << endl;
     
@@ -441,7 +455,7 @@ void doTask(int cmd) {
             }
         }
     }
-  } else if (cmd == 2) {
+  } else if (cmd == "2") {
     // 任務二
   } 
 }
@@ -453,20 +467,17 @@ int main() {
   
   while (true) {
     PrintTitle();
-    int cmd;
-    cin >> cmd;
-    if (cin.fail()) { 
+    string cmd = ReadInput();
+    if (cmd == "0") { 
       return 0;
-    } else if (cmd == 0 ){
-      return 0;
-    } else if (cmd != 1 && cmd != 2){  
-      cout << "\nCommand does not exist!\n";
-    } else {
+    } else if (cmd == "1"){
       cout << endl;
-      if (uc.fetchFile(cmd)) {
+      if (uc.fetchFile()) {
         uc.doTask(cmd);
       }
-    }
+    }  else if (cmd == "2"){ 
+
+    } else cout << "\nCommand does not exist!\n";
     cout << endl;  
   }
 }
