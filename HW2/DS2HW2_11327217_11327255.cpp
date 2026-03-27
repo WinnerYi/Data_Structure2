@@ -446,6 +446,7 @@ class UniversityCatalog {
 
 void doTask(string cmd) { 
   if (cmd == "1") {
+    last_txt_path = "";
     cout << "Tree height = " << tree23.getHeight() << endl;
     cout << "Number of nodes = " << tree23.getNodeCount() << endl;
     
@@ -504,6 +505,7 @@ int main() {
       cout << endl;
       if (uc.fetchFile()) {
         uc.doTask(cmd);
+        printf("\n");
       }
     }  else if (cmd == "2"){ 
       if (uc.getInfoCount() == 0) {
@@ -513,6 +515,7 @@ int main() {
       }
 
     } else cout << "\nCommand does not exist!\n";
+    
     cout << endl;  
   }
 }
