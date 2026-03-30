@@ -3,52 +3,55 @@
 
 這一步的目標是把樹中最大的元素拿出來，並找一個「替死鬼」準備填補空缺。
 
-鎖定目標： Max-Heap 的根節點位在 Index 2，這就是全樹的最大值（maxNode）。
+  1. 鎖定目標： Max-Heap 的根節點位在 Index 2，這就是全樹的最大值（maxNode）。
 
-挑選替死鬼： 拿出整棵樹陣列的最後一個節點（lastNode）。因為我們要把陣列最後一格刪掉以維持 Complete Binary Tree 的形狀。
+  2. 挑選替死鬼： 拿出整棵樹陣列的最後一個節點（lastNode）。因為我們要把陣列最後一格刪掉以維持 Complete Binary Tree 的形狀。
 
-製造空位： 刪除最後一格後，Index 2 現在變成了一個「空位」（maxRoot = 2）。接下來的任務，就是要幫 lastNode 找一個合法的新家。
+  3. 製造空位： 刪除最後一格後，Index 2 現在變成了一個「空位」（maxRoot = 2）。接下來的任務，就是要幫 lastNode 找一個合法的新家。
 
 ## 階段二：向下過濾 (Filtering Down) 與虛擬子節點探測
 
 這對應到你程式碼中的 filterDownMax。這個階段的任務是讓 Index 2 的「空位」一路往下沉，直到找到適合 lastNode 的樓層。
 
-Max 側一般下沉：
+  1. Max 側一般下沉：
 
-檢查這個空位有沒有左、右子節點。
+    ·檢查這個空位有沒有左、右子節點。
 
-如果有，找出比較大的一個（bestChild）。
+    ·如果有，找出比較大的一個（bestChild）。
 
-如果 lastNode 已經比這個最大的子節點還要大（或相等），代表 lastNode 夠資格坐在現在這個空位上，提早停止下沉。
+    ·如果 lastNode 已經比這個最大的子節點還要大（或相等），代表 lastNode 夠資格坐在現在這個空位上，提早停止下沉。
 
-否則，把最大的子節點拉上來填補空位，空位則降到該子節點的位置，繼續往下檢查。
+    ·否則，把最大的子節點拉上來填補空位，空位則降到該子節點的位置，繼續往下檢查。
 
-觸底後的「虛擬子節點」探測 (最精華的邊界處理)：
+  2. 觸底後的「虛擬子節點」探測 (最精華的邊界處理)：
 
-當空位沉到底層，Max 側已經沒有子節點時，不能直接把 lastNode 塞進去。為什麼？因為Min 側的底層可能還有節點（DEAP 的節點是從左邊的 Min 側開始填的）。
+    ·當空位沉到底層，Max 側已經沒有子節點時，不能直接把 lastNode 塞進去。為什麼？因為Min 側的底層可能還有節點（DEAP 的節點是從左邊的 Min 側開始填的）。
 
-程式會算出這個 Max 空位在 Min 側的「對應夥伴 (Partner)」，並往下找這個夥伴的子節點（也就是 virLeft 和 virRight，這就是所謂的「虛擬子節點」）。
+    ·程式會算出這個 Max 空位在 Min 側的「對應夥伴 (Partner)」，並往下找這個夥伴的子節點（也就是 virLeft 和 virRight，這就是所謂的「虛擬子節點」）。
 
-如果這些虛擬子節點裡的最大值（max_v_child）竟然比你的 lastNode 還要大，那就糟了！這會違反 DEAP「Max 側必須大於等於 Min 側」的鐵則。
+    ·如果這些虛擬子節點裡的最大值（max_v_child）竟然比你的 lastNode 還要大，那就糟了！這會違反 DEAP「Max 側必須大於等於 Min 側」的鐵則。
 
-解法： 把這個叛逆的 max_v_child 拉上來填補 Max 側的空位。這時，空位就正式「跨界」掉進了 Min 側的地盤（is_beenToMin = true）。
+    ·解法： 把這個叛逆的 max_v_child 拉上來填補 Max 側的空位。這時，空位就正式「跨界」掉進了 Min 側的地盤（is_beenToMin = true）。
 
 ## 階段三：跨樹對決與最終安置
 
 這對應到你程式碼中的 finalizeMaxPlacement。空位終於停止移動了，現在要把 lastNode 真正放進去，並做最後的體檢。
 
-情境 A：空位已經掉進 Min 側 (is_beenToMin == true)
+  1. 情境 A：空位已經掉進 Min 側 (is_beenToMin == true)
 
-這代表在階段二的最後，我們借用了 Min 側的節點來補 Max 側的洞。
+    ·這代表在階段二的最後，我們借用了 Min 側的節點來補 Max 側的洞。
 
-既然空位現在在 Min 側，我們就直接把 lastNode 放在這裡，然後執行標準的 Min-Heap 向上調整 (heapifyUpMin)，確保它沒有比 Min 側的父節點小。
+    ·既然空位現在在 Min 側，我們就直接把 lastNode 放在這裡，然後執行標準的 Min-Heap 向上調整 (heapifyUpMin)，確保它沒有比 Min 側的父節點小。
 
-情境 B：空位依然留在 Max 側 (is_beenToMin == false)
+  2. 情境 B：空位依然留在 Max 側 (is_beenToMin == false)
 
-把 lastNode 暫時放在這個 Max 側的空位上。
+    ·把 lastNode 暫時放在這個 Max 側的空位上。
 
-跨樹檢查： 找出它在 Min 側的對應夥伴（finalPartner）。
+    ·跨樹檢查： 找出它在 Min 側的對應夥伴（finalPartner）。
 
-如果 lastNode 竟然比 Min 側的夥伴還要小（違反規則），那就把它們兩個交換！交換後，lastNode 跑到 Min 側，執行 heapifyUpMin；原本 Min 側的夥伴被推上 Max 側。
+    ·如果 lastNode 竟然比 Min 側的夥伴還要小（違反規則），那就把它們兩個交換！交換後，lastNode 跑到 Min 側，執行 heapifyUpMin；原本 Min 側的夥伴被推上 Max 側。
 
-如果大於等於夥伴（符合規則），那就乖乖待在 Max 側，執行標準的 Max-Heap 向上檢查 (heapifyUpMax)，確保它沒有比 Max 側的父節點大。
+    ·如果大於等於夥伴（符合規則），那就乖乖待在 Max 側，執行標準的 Max-Heap 向上檢查 (heapifyUpMax)，確保它沒有比 Max 側的父節點大。
+
+
+ #### 拔出最大值 → 拿最後一個節點當替死鬼 → 在 Max 樹往下找空位 → 檢查是否會被 Min 樹底層反超 → 放入節點並做最後的向上體檢 
