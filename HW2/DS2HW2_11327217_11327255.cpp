@@ -14,23 +14,7 @@ void SkipSpace(string &str);
 string ReadInput();
 int safeStoi(string s);
 
-struct DataEntry {
-    int studentCount;
-    vector<int> ids;
-    DataEntry(int count, int id) {
-        studentCount = count;
-        ids.push_back(id);
-    }
-};
 
-struct TreeNode {  
-    vector<DataEntry> entries;
-    vector<TreeNode*> children; 
-    bool isLeaf;
-  TreeNode() {
-        isLeaf = true;
-    }
-};
 
 class GraduateInfo{ 
  private:
@@ -228,6 +212,24 @@ public:
     }
 };
 
+
+struct DataEntry {
+    int studentCount;
+    vector<int> ids;
+    DataEntry(int count, int id) {
+        studentCount = count;
+        ids.push_back(id);
+    }
+};
+
+struct TreeNode {  
+    vector<DataEntry> entries;
+    vector<TreeNode*> children; 
+    bool isLeaf;
+  TreeNode() {
+        isLeaf = true;
+    }
+};
     
 
 struct SplitResult {
@@ -399,7 +401,7 @@ class UniversityCatalog {
         cur_txt_path = txt_path;
         break;
     }
-    
+                                                                                                                                    
     reSet(); // 讀新檔案前清空舊資料
 
     int count_id = 1;
