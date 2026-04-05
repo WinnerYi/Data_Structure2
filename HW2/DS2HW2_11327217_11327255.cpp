@@ -16,6 +16,7 @@ int safeStoi(string s);
 
 
 
+
 class GraduateInfo{ 
  private:
   int id;
@@ -209,6 +210,331 @@ public:
     void clear() {
         clearTree(root);
         root = nullptr;
+    }
+};
+class RedBlackTree {
+private:
+    struct RBNode {
+        std::string key;          // 科系名稱
+        std::vector<int> ids;     // 儲存相同科系的所有序號
+        int color;                // 0: Black, 1: Red
+        RBNode* parent;
+        RBNode* left;
+        RBNode* right;
+    };
+
+    RBNode* root;
+    RBNode* TNULL; // 哨兵節點 (Sentinel node)，用於簡化邊界條件處理
+
+    // 初始化哨兵節點
+    void initTNULL() {
+        TNULL = new RBNode;
+        TNULL->color = 0; // TNULL 永遠是黑色
+        TNULL->left = nullptr;
+        TNULL->right = nullptr;
+        TNULL->parent = nullptr;
+    }
+
+    void leftRotate(RBNode* x) {
+        RBNode* y = x->right;
+        x->right = y->left;
+        if (y->left != TNULL) {
+            y->left->parent = x;
+        }
+        y->parent = x->parent;
+        if (x->parent == nullptr) {
+            this->root = y;
+        } else if (x == x->parent->left) {
+            x->parent->left = y;
+        } else {
+            x->parent->right = y;
+        }
+        y->left = x;
+        x->parent = y;
+    }
+
+    void rightRotate(RBNode* x) {
+        RBNode* y = x->left;
+        x->left = y->right;
+        if (y->right != TNULL) {
+            y->right->parent = x;
+        }
+        y->parent = x->parent;
+        if (x->parent == nullptr) {
+            this->root = y;
+        } else if (x == x->parent->right) {
+            x->parent->right = y;
+        } else {
+            x->parent->left = y;
+        }
+        y->right = x;
+        x->parent = y;
+    }
+
+    void insertFixup(RBNode* k) {
+        RBNode* u;
+        while (k->parent != nullptr && k->parent->color == 1) {
+            if (k->parent == k->parent->parent->left) {
+                u = k->parent->parent->right;
+                if (u->color == 1) {
+                    u->color = 0;
+                    k->parent->color = 0;
+                    k->parent->parent->color = 1;
+                    k = k->parent->parent;
+                } else {
+                    if (k == k->parent->right) {
+                        k = k->parent;
+                        leftRotate(k);
+                    }
+                    k->parent->color = 0;
+                    k->parent->parent->color = 1;
+                    rightRotate(k->parent->parent);
+                }
+            } else {
+                u = k->parent->parent->left;
+                if (u->color == 1) {
+                    u->color = 0;
+                    k->parent->color = 0;
+                    k->parent->parent->color = 1;
+                    k = k->parent->parent;
+                } else {
+                    if (k == k->parent->left) {
+                        k = k->parent;
+                        rightRotate(k);
+                    }
+                    k->parent->color = 0;
+                    k->parent->parent->color = 1;
+                    leftRotate(k->parent->parent);
+                }
+            }
+            if (k == root) {
+                break;
+            }
+        }
+        root->color = 0;
+    }
+
+    void deleteFixup(RBNode* x) {
+        RBNode* s;
+        while (x != root && x->color == 0) {
+            if (x == x->parent->left) {
+                s = x->parent->right;
+                if (s->color == 1) {
+                    s->color = 0;
+                    x->parent->color = 1;
+                    leftRotate(x->parent);
+                    s = x->parent->right;
+                }
+                if (s->left->color == 0 && s->right->color == 0) {
+                    s->color = 1;
+                    x = x->parent;
+                } else {
+                    if (s->right->color == 0) {
+                        s->left->color = 0;
+                        s->color = 1;
+                        rightRotate(s);
+                        s = x->parent->right;
+                    }
+                    s->color = x->parent->color;
+                    x->parent->color = 0;
+                    s->right->color = 0;
+                    leftRotate(x->parent);
+                    x = root;
+                }
+            } else {
+                s = x->parent->left;
+                if (s->color == 1) {
+                    s->color = 0;
+                    x->parent->color = 1;
+                    rightRotate(x->parent);
+                    s = x->parent->left;
+                }
+                if (s->right->color == 0 && s->left->color == 0) {
+                    s->color = 1;
+                    x = x->parent;
+                } else {
+                    if (s->left->color == 0) {
+                        s->right->color = 0;
+                        s->color = 1;
+                        leftRotate(s);
+                        s = x->parent->left;
+                    }
+                    s->color = x->parent->color;
+                    x->parent->color = 0;
+                    s->left->color = 0;
+                    rightRotate(x->parent);
+                    x = root;
+                }
+            }
+        }
+        x->color = 0;
+    }
+
+    void rbTransplant(RBNode* u, RBNode* v) {
+        if (u->parent == nullptr) {
+            root = v;
+        } else if (u == u->parent->left) {
+            u->parent->left = v;
+        } else {
+            u->parent->right = v;
+        }
+        v->parent = u->parent;
+    }
+
+    RBNode* minimum(RBNode* node) {
+        while (node->left != TNULL) {
+            node = node->left;
+        }
+        return node;
+    }
+
+    void clearTree(RBNode* node) {
+        if (node != TNULL) {
+            clearTree(node->left);
+            clearTree(node->right);
+            delete node;
+        }
+    }
+
+    int countNodes(RBNode* node) {
+        if (node == TNULL) return 0;
+        return 1 + countNodes(node->left) + countNodes(node->right);
+    }
+
+    int getHeight(RBNode* node) {
+        if (node == TNULL) return 0;
+        int leftHeight = getHeight(node->left);
+        int rightHeight = getHeight(node->right);
+        return 1 + (leftHeight > rightHeight ? leftHeight : rightHeight);
+    }
+
+public:
+    RedBlackTree() {
+        initTNULL();
+        root = TNULL;
+    }
+
+    ~RedBlackTree() {
+        clearTree(root);
+        delete TNULL;
+    }
+
+    // 1. Insert: 插入科系名稱與對應序號
+    void insert(std::string key, int id) {
+        RBNode* node = new RBNode;
+        node->parent = nullptr;
+        node->key = key;
+        node->ids.push_back(id); // 建立節點時存入第一筆序號
+        node->left = TNULL;
+        node->right = TNULL;
+        node->color = 1; // 新節點預設為紅色
+
+        RBNode* y = nullptr;
+        RBNode* x = this->root;
+
+        while (x != TNULL) {
+            y = x;
+            if (node->key < x->key) {
+                x = x->left;
+            } else if (node->key > x->key) {
+                x = x->right;
+            } else {
+                // 如果科系名稱相同，不新增節點，直接把序號加入原節點的 vector 中
+                x->ids.push_back(id);
+                delete node; // 刪除剛才多配置的節點
+                return;
+            }
+        }
+
+        node->parent = y;
+        if (y == nullptr) {
+            root = node;
+        } else if (node->key < y->key) {
+            y->left = node;
+        } else {
+            y->right = node;
+        }
+
+        if (node->parent == nullptr) {
+            node->color = 0;
+            return;
+        }
+
+        if (node->parent->parent == nullptr) {
+            return;
+        }
+
+        insertFixup(node);
+    }
+
+    // 2. Delete: 刪除指定科系名稱的節點
+    void remove(std::string key) {
+        RBNode* node = root;
+        RBNode* z = TNULL;
+        
+        while (node != TNULL) {
+            if (node->key == key) {
+                z = node;
+                break;
+            }
+            if (key < node->key) {
+                node = node->left;
+            } else {
+                node = node->right;
+            }
+        }
+
+        if (z == TNULL) {
+            return; // 找不到該 Key
+        }
+
+        RBNode* y = z;
+        RBNode* x;
+        int y_original_color = y->color;
+        
+        if (z->left == TNULL) {
+            x = z->right;
+            rbTransplant(z, z->right);
+        } else if (z->right == TNULL) {
+            x = z->left;
+            rbTransplant(z, z->left);
+        } else {
+            y = minimum(z->right);
+            y_original_color = y->color;
+            x = y->right;
+            if (y->parent == z) {
+                x->parent = y;
+            } else {
+                rbTransplant(y, y->right);
+                y->right = z->right;
+                y->right->parent = y;
+            }
+            rbTransplant(z, y);
+            y->left = z->left;
+            y->left->parent = y;
+            y->color = z->color;
+        }
+        delete z;
+        
+        if (y_original_color == 0) {
+            deleteFixup(x);
+        }
+    }
+
+    // 清空整棵樹
+    void clear() {
+        clearTree(root);
+        root = TNULL;
+    }
+
+    // 取得樹的節點數
+    int getTotalNodes() {
+        return countNodes(root);
+    }
+
+    // 取得樹的高度
+    int getTreeHeight() {
+        return getHeight(root);
     }
 };
 
