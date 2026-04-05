@@ -15,8 +15,6 @@ string ReadInput();
 int safeStoi(string s);
 
 
-
-
 class GraduateInfo{ 
  private:
   int id;
@@ -52,16 +50,16 @@ class GraduateInfo{
     string getLastYearGraduatesCount() { return lastYearGraduatesCount; }
 };
 
-/// NOTE: 從1號開始的唯一『序號』!
+// NOTE: 從1號開始的唯一『序號』!
 
 struct AVLNode {
-    std::string deptName;   // 科系名稱 (Key)
-    std::vector<int> ids;     // 儲存相同科系的所有序號
+    string deptName;   // 科系名稱 (Key)
+    vector<int> ids;     // 儲存相同科系的所有序號
     int height;
     AVLNode* left;
     AVLNode* right;
 
-    AVLNode(std::string deptName, int id) {
+    AVLNode(string deptName, int id) {
         this->deptName = deptName;
         this->ids.push_back(id); // 建立節點時存入第一筆序號
         this->height = 1;
@@ -88,12 +86,14 @@ class AVLTree {
             n->height = 1 + getMax(getHeight(n->left), getHeight(n->right));
         }
     }
-
+    
+    // 計算平衡因子 (左子樹高度 - 右子樹高度)
     int getBalance(AVLNode* n) {
         if (n == nullptr) return 0;
         return getHeight(n->left) - getHeight(n->right);
     }
 
+    
     AVLNode* rotateRR(AVLNode* x) {
         AVLNode* y = x->right;
         x->right = y->left;
@@ -123,23 +123,29 @@ class AVLTree {
     }
 
     // 內部遞迴 Insert
-    AVLNode* insertNode(AVLNode* node, std::string dept, int id) {
+    AVLNode* insertNode(AVLNode* node, string dept, int id) {
+        // 1. 找到空位，建立新節點
         if (node == nullptr) {
             return new AVLNode(dept, id);
         }
 
+        // 2. 比較字串大小決定走向
         if (dept < node->deptName) {
             node->left = insertNode(node->left, dept, id);
         } else if (dept > node->deptName) {
             node->right = insertNode(node->right, dept, id);
         } else {
+            // 3. 科系名稱相同！不新增節點，直接把序號加入原節點的 vector 中
+            // 因為是「依序號由小到大一筆一筆新增」，所以 push_back 就會是排好序的
             node->ids.push_back(id);
-            return node;
+            return node; // 沒有新增節點，樹高不變，直接 return
         }
 
+        // 更新高度與檢查平衡 (只有新增節點才會走到這裡)
         updateHeight(node);
         int balance = getBalance(node);
 
+        // 判斷並執行旋轉 (字串比較)
         if (balance > 1 && dept < node->left->deptName) return rotateLL(node);
         if (balance < -1 && dept > node->right->deptName) return rotateRR(node);
         if (balance > 1 && dept > node->left->deptName) return rotateLR(node);
@@ -237,12 +243,12 @@ public:
     AVLTree() { root = nullptr; }
     ~AVLTree() { clearTree(root); }
 
-    void insert(std::string dept, int id) {
+    void insert(string dept, int id) {
         root = insertNode(root, dept, id);
     }
 
     // 新增的對外開放刪除函式
-    void remove(std::string dept) {
+    void remove(string dept) {
         root = deleteNode(root, dept);
     }
 
@@ -259,7 +265,7 @@ public:
     }
 
     // 3. 找出樹根內的所有資料
-    void printRootData(std::vector<GraduateInfo> temp_info) {
+    void printRootData(vector<GraduateInfo> temp_info) {
         if (root == nullptr) {
             cout << "Tree is empty." << endl;
             return;
@@ -269,15 +275,15 @@ public:
         cout << "Number of nodes = " << getTotalNodes() << endl;
        
         for (int i = 0; i < root->ids.size(); i++) {
-          std::cout << (i + 1) << ": [" << root->ids[i] << "] " 
+          cout << (i + 1) << ": [" << root->ids[i] << "] " 
                     << temp_info[root->ids[i] - 1].getSchoolName() << ", " 
                     << temp_info[root->ids[i] - 1].getDeptName() << ", " 
                     << temp_info[root->ids[i] - 1].getEducationDivision() << ", " 
                     << temp_info[root->ids[i] - 1].getLevel() << ", " 
                     << temp_info[root->ids[i] - 1].getStudentCount() << ", " 
-                    << temp_info[root->ids[i] - 1].getLastYearGraduatesCount() << std::endl;
+                    << temp_info[root->ids[i] - 1].getLastYearGraduatesCount() << endl;
         }
-        std::cout << std::endl;
+        cout << endl;
     }
 
     void clear() {
@@ -285,11 +291,12 @@ public:
         root = nullptr;
     }
 };
+
 class RedBlackTree {
 private:
     struct RBNode {
-        std::string key;          // 科系名稱
-        std::vector<int> ids;     // 儲存相同科系的所有序號
+        string key;          // 科系名稱
+        vector<int> ids;     // 儲存相同科系的所有序號
         int color;                // 0: Black, 1: Red
         RBNode* parent;
         RBNode* left;
@@ -493,7 +500,7 @@ public:
     }
 
     // 1. Insert: 插入科系名稱與對應序號
-    void insert(std::string key, int id) {
+    void insert(string key, int id) {
         RBNode* node = new RBNode;
         node->parent = nullptr;
         node->key = key;
@@ -541,7 +548,7 @@ public:
     }
 
     // 2. Delete: 刪除指定科系名稱的節點
-    void remove(std::string key) {
+    void remove(string key) {
         RBNode* node = root;
         RBNode* z = TNULL;
         
@@ -612,28 +619,30 @@ public:
 };
 
 
+// 資料項目 (2-3 樹節點內儲存的資料單元)
 struct DataEntry {
-    int studentCount;
-    vector<int> ids;
+    int studentCount;  // 學生數量作為 Key
+    vector<int> ids;   // 學生數相同時記錄多個 id
     DataEntry(int count, int id) {
         studentCount = count;
         ids.push_back(id);
     }
 };
 
+// 2-3 樹節點 (可容納 1~2 個 Entry，3 個時觸發分裂)
 struct TreeNode {  
-    vector<DataEntry> entries;
-    vector<TreeNode*> children; 
+    vector<DataEntry> entries;  // 內部儲存的資料項目
+    vector<TreeNode*> children; // 子節點指標
     bool isLeaf;
-  TreeNode() {
+    TreeNode() {
         isLeaf = true;
     }
 };
     
-
+// 分裂結果，向上回傳升級的項目和右子樹
 struct SplitResult {
-    DataEntry* promotedEntry = nullptr;
-    TreeNode* rightNode = nullptr;
+    DataEntry* promotedEntry = nullptr; // 向上提升的元素
+    TreeNode* rightNode = nullptr;      // 分裂出來的右節點
 };
 
 class Two_Three_Tree {
@@ -643,18 +652,24 @@ class Two_Three_Tree {
 
     void insertIntoNode(TreeNode* node, const DataEntry& entry, TreeNode* rightChild = nullptr) {
         int i = 0;
+        // 尋找適合插入的位置
         while (i < node->entries.size() && entry.studentCount > node->entries[i].studentCount) {
             i++;
         }
+        // 將資料插入到正確的 index
         node->entries.insert(node->entries.begin() + i, entry);
+
+        // 如果有伴隨分裂產生的右子節點，也要插入到對應的 children 陣列中
         if (rightChild != nullptr) {
             node->children.insert(node->children.begin() + i + 1, rightChild);
         }
     }
 
+    // 處理 2-3 Tree 的插入與分裂邏輯
     SplitResult insertRecursive(TreeNode* node, int studentCount, int id) {
         SplitResult result;
 
+        // 1. 檢查目前節點內是否已經存在相同的 studentCount
         for (int i = 0; i < node->entries.size(); i++) {
             if (node->entries[i].studentCount == studentCount) {
                 node->entries[i].ids.push_back(id);
@@ -662,42 +677,55 @@ class Two_Three_Tree {
             }
         }
 
+        // 2. 判斷目前是否走到葉節點 (Leaf)
         if (node->isLeaf) {
+            // 到達葉節點：直接將新資料插入
             insertIntoNode(node, DataEntry(studentCount, id));
         } else {
+            // 是內部節點 (Internal Node)：決定要往哪一個子樹繼續走
             int childIdx = 0;
             while (childIdx < node->entries.size() && studentCount > node->entries[childIdx].studentCount) {
                 childIdx++;
             }
 
+            // 往下遞迴呼叫子節點進行插入
             SplitResult childResult = insertRecursive(node->children[childIdx], studentCount, id);
 
+            // 檢查子節點插入後是否有發生分裂(有元素被推擠上來)
             if (childResult.promotedEntry != nullptr) {
+                // 將下方推擠上來的元素與新產生的右子樹，合併回目前的節點中
                 insertIntoNode(node, *childResult.promotedEntry, childResult.rightNode);
                 delete childResult.promotedEntry;
             }
         }
 
+        // 3. 檢查目前節點是否發生 Overflow
         if (node->entries.size() == 3) {
+            // 建立一個新的右兄弟節點來接收分裂出去的資料
             TreeNode* rightSibling = new TreeNode();
             rightSibling->isLeaf = node->isLeaf;
             nodeCount++; 
 
+            // 將原本節點最右邊 (第3個) 的元素搬給新節點
             rightSibling->entries.push_back(node->entries[2]);
 
+            // 如果目前節點不是葉節點，連同對應的子樹指標也要搬過去
             if (!node->isLeaf) {
                 rightSibling->children.push_back(node->children[2]);
                 rightSibling->children.push_back(node->children[3]);
-                node->children.resize(2); 
+                node->children.resize(2); // 原本的節點只保留前 2 個子樹
             }
 
+            // 將中間的元素Promote)給上一層處理
             result.promotedEntry = new DataEntry(node->entries[1]);
-            result.rightNode = rightSibling;
+            result.rightNode = rightSibling; // 綁定剛剛分裂出來的右節點
 
+            // 只保留最左邊的元素
             node->entries.pop_back(); 
             node->entries.pop_back(); 
         }
 
+        // 回傳處理結果給上一層遞迴
         return result;
     }
 
@@ -819,7 +847,6 @@ public:
     }
 
     void clear() {
-        // ... (這裡可以實作與 AVLTree 類似的遞迴清空，若有需要的話)
         root = nullptr;
         nodeCount = 0;
     }
@@ -834,6 +861,7 @@ public:
 
         SplitResult res = insertRecursive(root, studentCount, id);
         
+        // 如果 Root 也分裂了，整棵樹長高，產生新的 Root
         if (res.promotedEntry != nullptr) {
             TreeNode* newRoot = new TreeNode();
             newRoot->isLeaf = false;
@@ -884,6 +912,272 @@ public:
     TreeNode* getRoot() { return root; }
 };
 
+// ======================= 新增 2-3-4 Tree 實作 =======================
+
+// 2-3-4 樹節點 (可容納 1~3 個 Entry，4 個時觸發分裂)
+struct T234_TreeNode {  
+    vector<DataEntry> entries; 
+    vector<T234_TreeNode*> children; 
+    bool isLeaf;
+    T234_TreeNode() {
+        isLeaf = true;
+    }
+};
+    
+// 分裂結果 (2-3-4 Tree 專用)
+struct T234_SplitResult {
+    DataEntry* promotedEntry = nullptr; 
+    T234_TreeNode* rightNode = nullptr;      
+};
+
+class Two_Three_Four_Tree {
+ private:
+    T234_TreeNode* root;
+    int nodeCount;
+
+    void insertIntoNode(T234_TreeNode* node, const DataEntry& entry, T234_TreeNode* rightChild = nullptr) {
+        int i = 0;
+        // 尋找適合插入的位置
+        while (i < node->entries.size() && entry.studentCount > node->entries[i].studentCount) {
+            i++;
+        }
+        // 將資料插入到正確的 index
+        node->entries.insert(node->entries.begin() + i, entry);
+
+        // 如果有伴隨分裂產生的右子節點，也要插入到對應的 children 陣列中
+        if (rightChild != nullptr) {
+            node->children.insert(node->children.begin() + i + 1, rightChild);
+        }
+    }
+
+    // 處理 2-3-4 Tree 的插入與分裂邏輯
+    T234_SplitResult insertRecursive(T234_TreeNode* node, int studentCount, int id) {
+        T234_SplitResult result;
+
+        // 1. 檢查目前節點內是否已經存在相同的 studentCount
+        for (int i = 0; i < node->entries.size(); i++) {
+            if (node->entries[i].studentCount == studentCount) {
+                node->entries[i].ids.push_back(id);
+                return result;
+            }
+        }
+
+        // 2. 判斷目前是否走到葉節點 (Leaf)
+        if (node->isLeaf) {
+            insertIntoNode(node, DataEntry(studentCount, id));
+        } else {
+            int childIdx = 0;
+            while (childIdx < node->entries.size() && studentCount > node->entries[childIdx].studentCount) {
+                childIdx++;
+            }
+
+            // 往下遞迴
+            T234_SplitResult childResult = insertRecursive(node->children[childIdx], studentCount, id);
+
+            if (childResult.promotedEntry != nullptr) {
+                insertIntoNode(node, *childResult.promotedEntry, childResult.rightNode);
+                delete childResult.promotedEntry;
+            }
+        }
+
+        // 3. 檢查 Overflow：2-3-4 樹最大容量為 3，等於 4 時需要分裂
+        if (node->entries.size() == 4) {
+            T234_TreeNode* rightSibling = new T234_TreeNode();
+            rightSibling->isLeaf = node->isLeaf;
+            nodeCount++; 
+
+            // 將右半部 (第 3, 4 個) 元素搬給新節點 (index 2, 3)
+            rightSibling->entries.push_back(node->entries[2]);
+            rightSibling->entries.push_back(node->entries[3]);
+
+            if (!node->isLeaf) {
+                rightSibling->children.push_back(node->children[2]);
+                rightSibling->children.push_back(node->children[3]);
+                rightSibling->children.push_back(node->children[4]);
+                node->children.resize(2); // 原本的節點保留前 2 個子樹
+            }
+
+            // 將中間偏左的元素 (index 1) Promote 給上一層
+            result.promotedEntry = new DataEntry(node->entries[1]);
+            result.rightNode = rightSibling; 
+
+            // 移除被分裂與被推擠出去的元素，左節點只保留 index 0
+            node->entries.pop_back(); 
+            node->entries.pop_back(); 
+            node->entries.pop_back(); 
+        }
+
+        return result;
+    }
+
+    // 取得子樹中的最小值節點
+    T234_TreeNode* getMinNode(T234_TreeNode* node) {
+        while (!node->isLeaf) {
+            node = node->children[0];
+        }
+        return node;
+    }
+
+    // 處理節點 Underflow (在 B-Tree 機制中，2-3 與 2-3-4 樹的 Underflow 同樣發生在元素數量降至 0)
+    void fixUnderflow(T234_TreeNode* parent, int childIndex) {
+        T234_TreeNode* child = parent->children[childIndex];
+
+        // 1. 若左兄弟有多餘的項目 (>1 即至少為 2 階)，向左兄弟借
+        if (childIndex > 0 && parent->children[childIndex - 1]->entries.size() > 1) {
+            T234_TreeNode* leftSib = parent->children[childIndex - 1];
+            child->entries.insert(child->entries.begin(), parent->entries[childIndex - 1]);
+            parent->entries[childIndex - 1] = leftSib->entries.back();
+            leftSib->entries.pop_back();
+
+            if (!leftSib->isLeaf) {
+                child->children.insert(child->children.begin(), leftSib->children.back());
+                leftSib->children.pop_back();
+            }
+        }
+        // 2. 若右兄弟有多餘的項目 (>1)，向右兄弟借
+        else if (childIndex < parent->children.size() - 1 && parent->children[childIndex + 1]->entries.size() > 1) {
+            T234_TreeNode* rightSib = parent->children[childIndex + 1];
+            child->entries.push_back(parent->entries[childIndex]);
+            parent->entries[childIndex] = rightSib->entries.front();
+            rightSib->entries.erase(rightSib->entries.begin());
+
+            if (!rightSib->isLeaf) {
+                child->children.push_back(rightSib->children.front());
+                rightSib->children.erase(rightSib->children.begin());
+            }
+        }
+        // 3. 只能與左兄弟合併
+        else if (childIndex > 0) {
+            T234_TreeNode* leftSib = parent->children[childIndex - 1];
+            leftSib->entries.push_back(parent->entries[childIndex - 1]); 
+
+            for (auto& e : child->entries) leftSib->entries.push_back(e);
+            for (auto& c : child->children) leftSib->children.push_back(c);
+
+            parent->entries.erase(parent->entries.begin() + (childIndex - 1));
+            parent->children.erase(parent->children.begin() + childIndex);
+
+            delete child;
+            nodeCount--;
+        }
+        // 4. 只能與右兄弟合併
+        else {
+            T234_TreeNode* rightSib = parent->children[childIndex + 1];
+            child->entries.push_back(parent->entries[childIndex]); 
+
+            for (auto& e : rightSib->entries) child->entries.push_back(e);
+            for (auto& c : rightSib->children) child->children.push_back(c);
+
+            parent->entries.erase(parent->entries.begin() + childIndex);
+            parent->children.erase(parent->children.begin() + (childIndex + 1));
+
+            delete rightSib;
+            nodeCount--;
+        }
+    }
+
+    bool removeRecursive(T234_TreeNode* node, int studentCount) {
+        int i = 0;
+        while (i < node->entries.size() && studentCount > node->entries[i].studentCount) {
+            i++;
+        }
+
+        if (i < node->entries.size() && node->entries[i].studentCount == studentCount) {
+            if (node->isLeaf) {
+                node->entries.erase(node->entries.begin() + i);
+                return true;
+            } else {
+                T234_TreeNode* minNode = getMinNode(node->children[i + 1]);
+                DataEntry successorData = minNode->entries[0];
+                node->entries[i] = successorData; 
+
+                removeRecursive(node->children[i + 1], successorData.studentCount);
+
+                if (node->children[i + 1]->entries.empty()) {
+                    fixUnderflow(node, i + 1);
+                }
+                return true;
+            }
+        }
+        else {
+            if (node->isLeaf) return false; 
+
+            bool deleted = removeRecursive(node->children[i], studentCount);
+            
+            if (deleted && node->children[i]->entries.empty()) {
+                fixUnderflow(node, i);
+            }
+            return deleted;
+        }
+    }
+
+public:
+    Two_Three_Four_Tree() {
+        root = nullptr;
+        nodeCount = 0;
+    }
+
+    void clear() {
+        root = nullptr;
+        nodeCount = 0;
+    }
+
+    void insert(int studentCount, int id) {
+        if (root == nullptr) {
+            root = new T234_TreeNode();
+            root->entries.push_back(DataEntry(studentCount, id));
+            nodeCount++;
+            return;
+        }
+
+        T234_SplitResult res = insertRecursive(root, studentCount, id);
+        
+        if (res.promotedEntry != nullptr) {
+            T234_TreeNode* newRoot = new T234_TreeNode();
+            newRoot->isLeaf = false;
+            newRoot->entries.push_back(*res.promotedEntry);
+            newRoot->children.push_back(root);
+            newRoot->children.push_back(res.rightNode);
+            
+            root = newRoot;
+            nodeCount++;
+            delete res.promotedEntry;
+        }
+    }
+
+    void remove(int studentCount) {
+        if (root == nullptr) return;
+        removeRecursive(root, studentCount);
+
+        if (root->entries.empty()) {
+            if (root->isLeaf) {
+                delete root;
+                root = nullptr;
+                nodeCount--;
+            } else {
+                T234_TreeNode* oldRoot = root;
+                root = root->children[0];
+                delete oldRoot;
+                nodeCount--; 
+            }
+        }
+    }
+
+    int getHeight() {
+        if (root == nullptr) return 0;
+        int height = 1;
+        T234_TreeNode* current = root;
+        while (!current->isLeaf) {
+            height++;
+            current = current->children[0];
+        }
+        return height;
+    }
+
+    int getNodeCount() { return nodeCount; }
+    T234_TreeNode* getRoot() { return root; }
+};
+
 
 
 class UniversityCatalog {
@@ -891,8 +1185,8 @@ class UniversityCatalog {
   vector<GraduateInfo> info;
   Two_Three_Tree tree23;
   AVLTree avl_tree;
-  std::string last_txt_path; // 紀錄上一次讀的資料檔
-  std::string cur_txt_path;
+  string last_txt_path; // 紀錄上一次讀的資料檔
+  string cur_txt_path;
   
  public:
   void reSet() {
