@@ -94,7 +94,6 @@ class AVLTree {
         return getHeight(n->left) - getHeight(n->right);
     }
 
-    
     AVLNode* rotateRR(AVLNode* x) {
         AVLNode* y = x->right;
         x->right = y->left;
@@ -125,32 +124,96 @@ class AVLTree {
 
     // 內部遞迴 Insert
     AVLNode* insertNode(AVLNode* node, std::string dept, int id) {
-        // 1. 找到空位，建立新節點
         if (node == nullptr) {
             return new AVLNode(dept, id);
         }
 
-        // 2. 比較字串大小決定走向
         if (dept < node->deptName) {
             node->left = insertNode(node->left, dept, id);
         } else if (dept > node->deptName) {
             node->right = insertNode(node->right, dept, id);
         } else {
-            // 3. 科系名稱相同！不新增節點，直接把序號加入原節點的 vector 中
-            // 因為是「依序號由小到大一筆一筆新增」，所以 push_back 就會是排好序的
             node->ids.push_back(id);
-            return node; // 沒有新增節點，樹高不變，直接 return
+            return node;
         }
 
-        // 更新高度與檢查平衡 (只有新增節點才會走到這裡)
         updateHeight(node);
         int balance = getBalance(node);
 
-        // 判斷並執行旋轉 (字串比較)
         if (balance > 1 && dept < node->left->deptName) return rotateLL(node);
         if (balance < -1 && dept > node->right->deptName) return rotateRR(node);
         if (balance > 1 && dept > node->left->deptName) return rotateLR(node);
         if (balance < -1 && dept < node->right->deptName) return rotateRL(node);
+
+        return node;
+    }
+
+    // 尋找樹中的最小值節點 (用於刪除時尋找右子樹的 Inorder Successor)
+    AVLNode* minValueNode(AVLNode* node) {
+        AVLNode* current = node;
+        while (current->left != nullptr) {
+            current = current->left;
+        }
+        return current;
+    }
+
+    // 內部遞迴 Delete
+    AVLNode* deleteNode(AVLNode* node, std::string dept) {
+        // 1. 標準 BST 刪除
+        if (node == nullptr) return node;
+
+        if (dept < node->deptName) {
+            node->left = deleteNode(node->left, dept);
+        } else if (dept > node->deptName) {
+            node->right = deleteNode(node->right, dept);
+        } else {
+            // 找到要刪除的節點
+            if (node->left == nullptr) {
+                AVLNode* temp = node->right;
+                delete node;
+                node = temp;
+            } else if (node->right == nullptr) {
+                AVLNode* temp = node->left;
+                delete node;
+                node = temp;
+            } else {
+                // 有兩個子節點：尋找右子樹的最小值節點做為替代
+                AVLNode* temp = minValueNode(node->right);
+
+                // 複製替代節點的資料過來
+                node->deptName = temp->deptName;
+                node->ids = temp->ids;
+
+                // 刪除該替代節點
+                node->right = deleteNode(node->right, temp->deptName);
+            }
+        }
+
+        // 如果刪除後樹為空，直接回傳
+        if (node == nullptr) return node;
+
+        // 2. 沿著路徑往上更新高度
+        updateHeight(node);
+
+        // 3. 檢查平衡因子 (Balance Factor)
+        int balance = getBalance(node);
+
+        // 4. 如果不平衡，進行旋轉修復
+        // Left Left Case
+        if (balance > 1 && getBalance(node->left) >= 0)
+            return rotateLL(node);
+
+        // Left Right Case
+        if (balance > 1 && getBalance(node->left) < 0)
+            return rotateLR(node);
+
+        // Right Right Case
+        if (balance < -1 && getBalance(node->right) <= 0)
+            return rotateRR(node);
+
+        // Right Left Case
+        if (balance < -1 && getBalance(node->right) > 0)
+            return rotateRL(node);
 
         return node;
     }
@@ -178,6 +241,11 @@ public:
         root = insertNode(root, dept, id);
     }
 
+    // 新增的對外開放刪除函式
+    void remove(std::string dept) {
+        root = deleteNode(root, dept);
+    }
+
     // --- 題目要求的三個最終輸出 ---
 
     // 1. 找出整棵樹的樹高
@@ -192,6 +260,11 @@ public:
 
     // 3. 找出樹根內的所有資料
     void printRootData(std::vector<GraduateInfo> temp_info) {
+        if (root == nullptr) {
+            cout << "Tree is empty." << endl;
+            return;
+        }
+
         cout << "Tree height = " << getTreeHeight() << endl;
         cout << "Number of nodes = " << getTotalNodes() << endl;
        
@@ -582,7 +655,6 @@ class Two_Three_Tree {
     SplitResult insertRecursive(TreeNode* node, int studentCount, int id) {
         SplitResult result;
 
-        //檢查是否已經有相同的學生數
         for (int i = 0; i < node->entries.size(); i++) {
             if (node->entries[i].studentCount == studentCount) {
                 node->entries[i].ids.push_back(id);
@@ -590,52 +662,154 @@ class Two_Three_Tree {
             }
         }
 
-        // 如果是葉子節點，直接插入
         if (node->isLeaf) {
             insertIntoNode(node, DataEntry(studentCount, id));
         } else {
-            // 尋找該往哪個子節點走
             int childIdx = 0;
             while (childIdx < node->entries.size() && studentCount > node->entries[childIdx].studentCount) {
                 childIdx++;
             }
 
-            // 遞迴往下
             SplitResult childResult = insertRecursive(node->children[childIdx], studentCount, id);
 
-            // 如果下方子節點有分裂，接收往上推的資料
             if (childResult.promotedEntry != nullptr) {
                 insertIntoNode(node, *childResult.promotedEntry, childResult.rightNode);
                 delete childResult.promotedEntry;
             }
         }
 
-        // 檢查當前節點是否滿
         if (node->entries.size() == 3) {
             TreeNode* rightSibling = new TreeNode();
             rightSibling->isLeaf = node->isLeaf;
-            nodeCount++; // 產生新節點
+            nodeCount++; 
 
-            // 將最大的 Entry[2] 搬到右邊的新節點
             rightSibling->entries.push_back(node->entries[2]);
 
-            // 如果不是葉子，要把右半邊的小孩也搬過去
             if (!node->isLeaf) {
                 rightSibling->children.push_back(node->children[2]);
                 rightSibling->children.push_back(node->children[3]);
-                node->children.resize(2); // 原節點只保留前兩個小孩
+                node->children.resize(2); 
             }
 
-            // 準備把中間的 Entry[1] 往上推給爸爸
             result.promotedEntry = new DataEntry(node->entries[1]);
             result.rightNode = rightSibling;
 
-            // 原節點縮編，只保留最小的 Entry[0]
             node->entries.pop_back(); 
             node->entries.pop_back(); 
         }
 
         return result;
+    }
+
+    // --- 以下為新增的 Delete 相關邏輯 ---
+
+    // 取得子樹中的最小值節點 (用於尋找 In-order Successor)
+    TreeNode* getMinNode(TreeNode* node) {
+        while (!node->isLeaf) {
+            node = node->children[0];
+        }
+        return node;
+    }
+
+    // 處理節點 Underflow (項目數變成 0)
+    void fixUnderflow(TreeNode* parent, int childIndex) {
+        TreeNode* child = parent->children[childIndex];
+
+        // 1. 若左兄弟有多餘的項目 (3-node)，向左兄弟借 (Redistribute)
+        if (childIndex > 0 && parent->children[childIndex - 1]->entries.size() > 1) {
+            TreeNode* leftSib = parent->children[childIndex - 1];
+            child->entries.insert(child->entries.begin(), parent->entries[childIndex - 1]);
+            parent->entries[childIndex - 1] = leftSib->entries.back();
+            leftSib->entries.pop_back();
+
+            if (!leftSib->isLeaf) {
+                child->children.insert(child->children.begin(), leftSib->children.back());
+                leftSib->children.pop_back();
+            }
+        }
+        // 2. 若右兄弟有多餘的項目 (3-node)，向右兄弟借 (Redistribute)
+        else if (childIndex < parent->children.size() - 1 && parent->children[childIndex + 1]->entries.size() > 1) {
+            TreeNode* rightSib = parent->children[childIndex + 1];
+            child->entries.push_back(parent->entries[childIndex]);
+            parent->entries[childIndex] = rightSib->entries.front();
+            rightSib->entries.erase(rightSib->entries.begin());
+
+            if (!rightSib->isLeaf) {
+                child->children.push_back(rightSib->children.front());
+                rightSib->children.erase(rightSib->children.begin());
+            }
+        }
+        // 3. 只能與左兄弟合併 (Merge)
+        else if (childIndex > 0) {
+            TreeNode* leftSib = parent->children[childIndex - 1];
+            leftSib->entries.push_back(parent->entries[childIndex - 1]); // 父節點項目降下
+
+            for (auto& e : child->entries) leftSib->entries.push_back(e);
+            for (auto& c : child->children) leftSib->children.push_back(c);
+
+            parent->entries.erase(parent->entries.begin() + (childIndex - 1));
+            parent->children.erase(parent->children.begin() + childIndex);
+
+            delete child;
+            nodeCount--;
+        }
+        // 4. 只能與右兄弟合併 (Merge)
+        else {
+            TreeNode* rightSib = parent->children[childIndex + 1];
+            child->entries.push_back(parent->entries[childIndex]); // 父節點項目降下
+
+            for (auto& e : rightSib->entries) child->entries.push_back(e);
+            for (auto& c : rightSib->children) child->children.push_back(c);
+
+            parent->entries.erase(parent->entries.begin() + childIndex);
+            parent->children.erase(parent->children.begin() + (childIndex + 1));
+
+            delete rightSib;
+            nodeCount--;
+        }
+    }
+
+    // 內部遞迴刪除
+    bool removeRecursive(TreeNode* node, int studentCount) {
+        int i = 0;
+        while (i < node->entries.size() && studentCount > node->entries[i].studentCount) {
+            i++;
+        }
+
+        // 找到目標 studentCount
+        if (i < node->entries.size() && node->entries[i].studentCount == studentCount) {
+            if (node->isLeaf) {
+                // Leaf 節點直接刪除項目
+                node->entries.erase(node->entries.begin() + i);
+                return true;
+            } else {
+                // Internal 節點: 與 In-order Successor 交換 (投影片 d)
+                TreeNode* minNode = getMinNode(node->children[i + 1]);
+                DataEntry successorData = minNode->entries[0];
+                node->entries[i] = successorData; 
+
+                // 去 Successor 所在的葉節點把它刪掉
+                removeRecursive(node->children[i + 1], successorData.studentCount);
+
+                // 檢查刪除後右子樹是否 Underflow
+                if (node->children[i + 1]->entries.empty()) {
+                    fixUnderflow(node, i + 1);
+                }
+                return true;
+            }
+        }
+        // 沒找到，繼續往下遍歷
+        else {
+            if (node->isLeaf) return false; 
+
+            bool deleted = removeRecursive(node->children[i], studentCount);
+            
+            // 遞迴回來後檢查剛剛走過的子節點是否 Underflow (投影片 recursion)
+            if (deleted && node->children[i]->entries.empty()) {
+                fixUnderflow(node, i);
+            }
+            return deleted;
+        }
     }
 
 public:
@@ -645,6 +819,7 @@ public:
     }
 
     void clear() {
+        // ... (這裡可以實作與 AVLTree 類似的遞迴清空，若有需要的話)
         root = nullptr;
         nodeCount = 0;
     }
@@ -659,7 +834,6 @@ public:
 
         SplitResult res = insertRecursive(root, studentCount, id);
         
-        // 如果 Root 也分裂了，整棵樹長高，產生新的 Root
         if (res.promotedEntry != nullptr) {
             TreeNode* newRoot = new TreeNode();
             newRoot->isLeaf = false;
@@ -670,6 +844,28 @@ public:
             root = newRoot;
             nodeCount++;
             delete res.promotedEntry;
+        }
+    }
+
+    // 對外開放的 Delete 方法，依據 studentCount 刪除整個節點資料
+    void remove(int studentCount) {
+        if (root == nullptr) return;
+
+        removeRecursive(root, studentCount);
+
+        // 特殊情況處理：Delete the root (投影片 e)
+        // 當根節點的唯一項目被移走，導致根節點變空時
+        if (root->entries.empty()) {
+            if (root->isLeaf) {
+                delete root;
+                root = nullptr;
+                nodeCount--;
+            } else {
+                TreeNode* oldRoot = root;
+                root = root->children[0];
+                delete oldRoot;
+                nodeCount--; // 兩個節點 merge 成一個，整體節點數-1
+            }
         }
     }
 
@@ -687,8 +883,6 @@ public:
     int getNodeCount() { return nodeCount; }
     TreeNode* getRoot() { return root; }
 };
-
-
 
 
 
