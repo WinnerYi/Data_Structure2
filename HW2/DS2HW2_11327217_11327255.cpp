@@ -239,9 +239,26 @@ class AVLTree {
         }
     }
 
+    /// MARK: 內部遞迴：尋找特定科系的節點
+    AVLNode* searchNode(AVLNode* node, string dept) {
+        // 1. 沒找到，或找到底了
+        if (node == nullptr || node->deptName == dept) {
+            return node;
+        }
+
+        // 2. 依照字典序決定往左或往右找
+        if (dept < node->deptName) {
+            return searchNode(node->left, dept);
+        } else {
+            return searchNode(node->right, dept);
+        }
+    }
+
 public:
     AVLTree() { root = nullptr; }
     ~AVLTree() { clearTree(root); }
+
+    
 
     void insert(string dept, int id) {
         root = insertNode(root, dept, id);
@@ -250,6 +267,28 @@ public:
     // 新增的對外開放刪除函式
     void remove(string dept) {
         root = deleteNode(root, dept);
+    }
+
+    /// MARK: 對外開放的精確搜尋介面
+    void exactSearch(string dept, const vector<GraduateInfo>& temp_info) {
+        AVLNode* result = searchNode(root, dept);
+
+        if (result == nullptr) {
+            cout << "Found 0 data regarding '" << dept << "'" << endl;
+            return;
+        }
+
+        // 如果找到了，印出該節點內 vector 儲存的所有相關序號資料
+        for (int i = 0; i < result->ids.size(); i++) {
+            int index = result->ids[i] - 1; // 假設序號從 1 開始，對應 vector 索引需 -1
+            // cout << (i + 1) << ": [" << result->ids[i] << "] " 
+            //      << temp_info[index].getSchoolName() << ", " 
+            //      << temp_info[index].getDeptName() << ", " 
+            //      << temp_info[index].getEducationDivision() << ", " 
+            //      << temp_info[index].getLevel() << ", " 
+            //      << temp_info[index].getStudentCount() << ", " 
+            //      << temp_info[index].getLastYearGraduatesCount() << endl;
+        }
     }
 
     // --- 題目要求的三個最終輸出 ---
@@ -292,331 +331,331 @@ public:
     }
 };
 
-class RedBlackTree {
-private:
-    struct RBNode {
-        string key;          // 科系名稱
-        vector<int> ids;     // 儲存相同科系的所有序號
-        int color;                // 0: Black, 1: Red
-        RBNode* parent;
-        RBNode* left;
-        RBNode* right;
-    };
+// class RedBlackTree {
+// private:
+//     struct RBNode {
+//         string key;          // 科系名稱
+//         vector<int> ids;     // 儲存相同科系的所有序號
+//         int color;                // 0: Black, 1: Red
+//         RBNode* parent;
+//         RBNode* left;
+//         RBNode* right;
+//     };
 
-    RBNode* root;
-    RBNode* TNULL; // 哨兵節點 (Sentinel node)，用於簡化邊界條件處理
+//     RBNode* root;
+//     RBNode* TNULL; // 哨兵節點 (Sentinel node)，用於簡化邊界條件處理
 
-    // 初始化哨兵節點
-    void initTNULL() {
-        TNULL = new RBNode;
-        TNULL->color = 0; // TNULL 永遠是黑色
-        TNULL->left = nullptr;
-        TNULL->right = nullptr;
-        TNULL->parent = nullptr;
-    }
+//     // 初始化哨兵節點
+//     void initTNULL() {
+//         TNULL = new RBNode;
+//         TNULL->color = 0; // TNULL 永遠是黑色
+//         TNULL->left = nullptr;
+//         TNULL->right = nullptr;
+//         TNULL->parent = nullptr;
+//     }
 
-    void leftRotate(RBNode* x) {
-        RBNode* y = x->right;
-        x->right = y->left;
-        if (y->left != TNULL) {
-            y->left->parent = x;
-        }
-        y->parent = x->parent;
-        if (x->parent == nullptr) {
-            this->root = y;
-        } else if (x == x->parent->left) {
-            x->parent->left = y;
-        } else {
-            x->parent->right = y;
-        }
-        y->left = x;
-        x->parent = y;
-    }
+//     void leftRotate(RBNode* x) {
+//         RBNode* y = x->right;
+//         x->right = y->left;
+//         if (y->left != TNULL) {
+//             y->left->parent = x;
+//         }
+//         y->parent = x->parent;
+//         if (x->parent == nullptr) {
+//             this->root = y;
+//         } else if (x == x->parent->left) {
+//             x->parent->left = y;
+//         } else {
+//             x->parent->right = y;
+//         }
+//         y->left = x;
+//         x->parent = y;
+//     }
 
-    void rightRotate(RBNode* x) {
-        RBNode* y = x->left;
-        x->left = y->right;
-        if (y->right != TNULL) {
-            y->right->parent = x;
-        }
-        y->parent = x->parent;
-        if (x->parent == nullptr) {
-            this->root = y;
-        } else if (x == x->parent->right) {
-            x->parent->right = y;
-        } else {
-            x->parent->left = y;
-        }
-        y->right = x;
-        x->parent = y;
-    }
+//     void rightRotate(RBNode* x) {
+//         RBNode* y = x->left;
+//         x->left = y->right;
+//         if (y->right != TNULL) {
+//             y->right->parent = x;
+//         }
+//         y->parent = x->parent;
+//         if (x->parent == nullptr) {
+//             this->root = y;
+//         } else if (x == x->parent->right) {
+//             x->parent->right = y;
+//         } else {
+//             x->parent->left = y;
+//         }
+//         y->right = x;
+//         x->parent = y;
+//     }
 
-    void insertFixup(RBNode* k) {
-        RBNode* u;
-        while (k->parent != nullptr && k->parent->color == 1) {
-            if (k->parent == k->parent->parent->left) {
-                u = k->parent->parent->right;
-                if (u->color == 1) {
-                    u->color = 0;
-                    k->parent->color = 0;
-                    k->parent->parent->color = 1;
-                    k = k->parent->parent;
-                } else {
-                    if (k == k->parent->right) {
-                        k = k->parent;
-                        leftRotate(k);
-                    }
-                    k->parent->color = 0;
-                    k->parent->parent->color = 1;
-                    rightRotate(k->parent->parent);
-                }
-            } else {
-                u = k->parent->parent->left;
-                if (u->color == 1) {
-                    u->color = 0;
-                    k->parent->color = 0;
-                    k->parent->parent->color = 1;
-                    k = k->parent->parent;
-                } else {
-                    if (k == k->parent->left) {
-                        k = k->parent;
-                        rightRotate(k);
-                    }
-                    k->parent->color = 0;
-                    k->parent->parent->color = 1;
-                    leftRotate(k->parent->parent);
-                }
-            }
-            if (k == root) {
-                break;
-            }
-        }
-        root->color = 0;
-    }
+//     void insertFixup(RBNode* k) {
+//         RBNode* u;
+//         while (k->parent != nullptr && k->parent->color == 1) {
+//             if (k->parent == k->parent->parent->left) {
+//                 u = k->parent->parent->right;
+//                 if (u->color == 1) {
+//                     u->color = 0;
+//                     k->parent->color = 0;
+//                     k->parent->parent->color = 1;
+//                     k = k->parent->parent;
+//                 } else {
+//                     if (k == k->parent->right) {
+//                         k = k->parent;
+//                         leftRotate(k);
+//                     }
+//                     k->parent->color = 0;
+//                     k->parent->parent->color = 1;
+//                     rightRotate(k->parent->parent);
+//                 }
+//             } else {
+//                 u = k->parent->parent->left;
+//                 if (u->color == 1) {
+//                     u->color = 0;
+//                     k->parent->color = 0;
+//                     k->parent->parent->color = 1;
+//                     k = k->parent->parent;
+//                 } else {
+//                     if (k == k->parent->left) {
+//                         k = k->parent;
+//                         rightRotate(k);
+//                     }
+//                     k->parent->color = 0;
+//                     k->parent->parent->color = 1;
+//                     leftRotate(k->parent->parent);
+//                 }
+//             }
+//             if (k == root) {
+//                 break;
+//             }
+//         }
+//         root->color = 0;
+//     }
 
-    void deleteFixup(RBNode* x) {
-        RBNode* s;
-        while (x != root && x->color == 0) {
-            if (x == x->parent->left) {
-                s = x->parent->right;
-                if (s->color == 1) {
-                    s->color = 0;
-                    x->parent->color = 1;
-                    leftRotate(x->parent);
-                    s = x->parent->right;
-                }
-                if (s->left->color == 0 && s->right->color == 0) {
-                    s->color = 1;
-                    x = x->parent;
-                } else {
-                    if (s->right->color == 0) {
-                        s->left->color = 0;
-                        s->color = 1;
-                        rightRotate(s);
-                        s = x->parent->right;
-                    }
-                    s->color = x->parent->color;
-                    x->parent->color = 0;
-                    s->right->color = 0;
-                    leftRotate(x->parent);
-                    x = root;
-                }
-            } else {
-                s = x->parent->left;
-                if (s->color == 1) {
-                    s->color = 0;
-                    x->parent->color = 1;
-                    rightRotate(x->parent);
-                    s = x->parent->left;
-                }
-                if (s->right->color == 0 && s->left->color == 0) {
-                    s->color = 1;
-                    x = x->parent;
-                } else {
-                    if (s->left->color == 0) {
-                        s->right->color = 0;
-                        s->color = 1;
-                        leftRotate(s);
-                        s = x->parent->left;
-                    }
-                    s->color = x->parent->color;
-                    x->parent->color = 0;
-                    s->left->color = 0;
-                    rightRotate(x->parent);
-                    x = root;
-                }
-            }
-        }
-        x->color = 0;
-    }
+//     void deleteFixup(RBNode* x) {
+//         RBNode* s;
+//         while (x != root && x->color == 0) {
+//             if (x == x->parent->left) {
+//                 s = x->parent->right;
+//                 if (s->color == 1) {
+//                     s->color = 0;
+//                     x->parent->color = 1;
+//                     leftRotate(x->parent);
+//                     s = x->parent->right;
+//                 }
+//                 if (s->left->color == 0 && s->right->color == 0) {
+//                     s->color = 1;
+//                     x = x->parent;
+//                 } else {
+//                     if (s->right->color == 0) {
+//                         s->left->color = 0;
+//                         s->color = 1;
+//                         rightRotate(s);
+//                         s = x->parent->right;
+//                     }
+//                     s->color = x->parent->color;
+//                     x->parent->color = 0;
+//                     s->right->color = 0;
+//                     leftRotate(x->parent);
+//                     x = root;
+//                 }
+//             } else {
+//                 s = x->parent->left;
+//                 if (s->color == 1) {
+//                     s->color = 0;
+//                     x->parent->color = 1;
+//                     rightRotate(x->parent);
+//                     s = x->parent->left;
+//                 }
+//                 if (s->right->color == 0 && s->left->color == 0) {
+//                     s->color = 1;
+//                     x = x->parent;
+//                 } else {
+//                     if (s->left->color == 0) {
+//                         s->right->color = 0;
+//                         s->color = 1;
+//                         leftRotate(s);
+//                         s = x->parent->left;
+//                     }
+//                     s->color = x->parent->color;
+//                     x->parent->color = 0;
+//                     s->left->color = 0;
+//                     rightRotate(x->parent);
+//                     x = root;
+//                 }
+//             }
+//         }
+//         x->color = 0;
+//     }
 
-    void rbTransplant(RBNode* u, RBNode* v) {
-        if (u->parent == nullptr) {
-            root = v;
-        } else if (u == u->parent->left) {
-            u->parent->left = v;
-        } else {
-            u->parent->right = v;
-        }
-        v->parent = u->parent;
-    }
+//     void rbTransplant(RBNode* u, RBNode* v) {
+//         if (u->parent == nullptr) {
+//             root = v;
+//         } else if (u == u->parent->left) {
+//             u->parent->left = v;
+//         } else {
+//             u->parent->right = v;
+//         }
+//         v->parent = u->parent;
+//     }
 
-    RBNode* minimum(RBNode* node) {
-        while (node->left != TNULL) {
-            node = node->left;
-        }
-        return node;
-    }
+//     RBNode* minimum(RBNode* node) {
+//         while (node->left != TNULL) {
+//             node = node->left;
+//         }
+//         return node;
+//     }
 
-    void clearTree(RBNode* node) {
-        if (node != TNULL) {
-            clearTree(node->left);
-            clearTree(node->right);
-            delete node;
-        }
-    }
+//     void clearTree(RBNode* node) {
+//         if (node != TNULL) {
+//             clearTree(node->left);
+//             clearTree(node->right);
+//             delete node;
+//         }
+//     }
 
-    int countNodes(RBNode* node) {
-        if (node == TNULL) return 0;
-        return 1 + countNodes(node->left) + countNodes(node->right);
-    }
+//     int countNodes(RBNode* node) {
+//         if (node == TNULL) return 0;
+//         return 1 + countNodes(node->left) + countNodes(node->right);
+//     }
 
-    int getHeight(RBNode* node) {
-        if (node == TNULL) return 0;
-        int leftHeight = getHeight(node->left);
-        int rightHeight = getHeight(node->right);
-        return 1 + (leftHeight > rightHeight ? leftHeight : rightHeight);
-    }
+//     int getHeight(RBNode* node) {
+//         if (node == TNULL) return 0;
+//         int leftHeight = getHeight(node->left);
+//         int rightHeight = getHeight(node->right);
+//         return 1 + (leftHeight > rightHeight ? leftHeight : rightHeight);
+//     }
 
-public:
-    RedBlackTree() {
-        initTNULL();
-        root = TNULL;
-    }
+// public:
+//     RedBlackTree() {
+//         initTNULL();
+//         root = TNULL;
+//     }
 
-    ~RedBlackTree() {
-        clearTree(root);
-        delete TNULL;
-    }
+//     ~RedBlackTree() {
+//         clearTree(root);
+//         delete TNULL;
+//     }
 
-    // 1. Insert: 插入科系名稱與對應序號
-    void insert(string key, int id) {
-        RBNode* node = new RBNode;
-        node->parent = nullptr;
-        node->key = key;
-        node->ids.push_back(id); // 建立節點時存入第一筆序號
-        node->left = TNULL;
-        node->right = TNULL;
-        node->color = 1; // 新節點預設為紅色
+//     // 1. Insert: 插入科系名稱與對應序號
+//     void insert(string key, int id) {
+//         RBNode* node = new RBNode;
+//         node->parent = nullptr;
+//         node->key = key;
+//         node->ids.push_back(id); // 建立節點時存入第一筆序號
+//         node->left = TNULL;
+//         node->right = TNULL;
+//         node->color = 1; // 新節點預設為紅色
 
-        RBNode* y = nullptr;
-        RBNode* x = this->root;
+//         RBNode* y = nullptr;
+//         RBNode* x = this->root;
 
-        while (x != TNULL) {
-            y = x;
-            if (node->key < x->key) {
-                x = x->left;
-            } else if (node->key > x->key) {
-                x = x->right;
-            } else {
-                // 如果科系名稱相同，不新增節點，直接把序號加入原節點的 vector 中
-                x->ids.push_back(id);
-                delete node; // 刪除剛才多配置的節點
-                return;
-            }
-        }
+//         while (x != TNULL) {
+//             y = x;
+//             if (node->key < x->key) {
+//                 x = x->left;
+//             } else if (node->key > x->key) {
+//                 x = x->right;
+//             } else {
+//                 // 如果科系名稱相同，不新增節點，直接把序號加入原節點的 vector 中
+//                 x->ids.push_back(id);
+//                 delete node; // 刪除剛才多配置的節點
+//                 return;
+//             }
+//         }
 
-        node->parent = y;
-        if (y == nullptr) {
-            root = node;
-        } else if (node->key < y->key) {
-            y->left = node;
-        } else {
-            y->right = node;
-        }
+//         node->parent = y;
+//         if (y == nullptr) {
+//             root = node;
+//         } else if (node->key < y->key) {
+//             y->left = node;
+//         } else {
+//             y->right = node;
+//         }
 
-        if (node->parent == nullptr) {
-            node->color = 0;
-            return;
-        }
+//         if (node->parent == nullptr) {
+//             node->color = 0;
+//             return;
+//         }
 
-        if (node->parent->parent == nullptr) {
-            return;
-        }
+//         if (node->parent->parent == nullptr) {
+//             return;
+//         }
 
-        insertFixup(node);
-    }
+//         insertFixup(node);
+//     }
 
-    // 2. Delete: 刪除指定科系名稱的節點
-    void remove(string key) {
-        RBNode* node = root;
-        RBNode* z = TNULL;
+//     // 2. Delete: 刪除指定科系名稱的節點
+//     void remove(string key) {
+//         RBNode* node = root;
+//         RBNode* z = TNULL;
         
-        while (node != TNULL) {
-            if (node->key == key) {
-                z = node;
-                break;
-            }
-            if (key < node->key) {
-                node = node->left;
-            } else {
-                node = node->right;
-            }
-        }
+//         while (node != TNULL) {
+//             if (node->key == key) {
+//                 z = node;
+//                 break;
+//             }
+//             if (key < node->key) {
+//                 node = node->left;
+//             } else {
+//                 node = node->right;
+//             }
+//         }
 
-        if (z == TNULL) {
-            return; // 找不到該 Key
-        }
+//         if (z == TNULL) {
+//             return; // 找不到該 Key
+//         }
 
-        RBNode* y = z;
-        RBNode* x;
-        int y_original_color = y->color;
+//         RBNode* y = z;
+//         RBNode* x;
+//         int y_original_color = y->color;
         
-        if (z->left == TNULL) {
-            x = z->right;
-            rbTransplant(z, z->right);
-        } else if (z->right == TNULL) {
-            x = z->left;
-            rbTransplant(z, z->left);
-        } else {
-            y = minimum(z->right);
-            y_original_color = y->color;
-            x = y->right;
-            if (y->parent == z) {
-                x->parent = y;
-            } else {
-                rbTransplant(y, y->right);
-                y->right = z->right;
-                y->right->parent = y;
-            }
-            rbTransplant(z, y);
-            y->left = z->left;
-            y->left->parent = y;
-            y->color = z->color;
-        }
-        delete z;
+//         if (z->left == TNULL) {
+//             x = z->right;
+//             rbTransplant(z, z->right);
+//         } else if (z->right == TNULL) {
+//             x = z->left;
+//             rbTransplant(z, z->left);
+//         } else {
+//             y = minimum(z->right);
+//             y_original_color = y->color;
+//             x = y->right;
+//             if (y->parent == z) {
+//                 x->parent = y;
+//             } else {
+//                 rbTransplant(y, y->right);
+//                 y->right = z->right;
+//                 y->right->parent = y;
+//             }
+//             rbTransplant(z, y);
+//             y->left = z->left;
+//             y->left->parent = y;
+//             y->color = z->color;
+//         }
+//         delete z;
         
-        if (y_original_color == 0) {
-            deleteFixup(x);
-        }
-    }
+//         if (y_original_color == 0) {
+//             deleteFixup(x);
+//         }
+//     }
 
-    // 清空整棵樹
-    void clear() {
-        clearTree(root);
-        root = TNULL;
-    }
+//     // 清空整棵樹
+//     void clear() {
+//         clearTree(root);
+//         root = TNULL;
+//     }
 
-    // 取得樹的節點數
-    int getTotalNodes() {
-        return countNodes(root);
-    }
+//     // 取得樹的節點數
+//     int getTotalNodes() {
+//         return countNodes(root);
+//     }
 
-    // 取得樹的高度
-    int getTreeHeight() {
-        return getHeight(root);
-    }
-};
+//     // 取得樹的高度
+//     int getTreeHeight() {
+//         return getHeight(root);
+//     }
+// };
 
 
 // 資料項目 (2-3 樹節點內儲存的資料單元)
@@ -840,6 +879,36 @@ class Two_Three_Tree {
         }
     }
 
+    /// MARK: 內部遞迴：2-3 樹的反向中序遍歷 (大 -> 小)
+    void topKMaxHelper(TreeNode* node, int& k, std::vector<DataEntry>& result) {
+        // 節點為空或已經找滿 K 個，提早結束 (Pruning)
+        if (node == nullptr || k <= 0) return;
+
+        if (node->isLeaf) {
+            // 情況 A：如果是葉節點，直接從陣列最右邊 (最大值) 開始取
+            for (int i = node->entries.size() - 1; i >= 0 && k > 0; i--) {
+                result.push_back(node->entries[i]);
+                k--; // 找到一個 Key，K 減 1
+            }
+        } else {
+            // 情況 B：如果是內部節點，子樹與資料要「交替」走訪
+            // 如果 entries 有 2 個，children 就有 3 個。索引 i 會從 2 開始遞減到 0。
+            for (int i = node->entries.size(); i >= 0; i--) {
+                
+                // 1. 先往右側的子樹走
+                topKMaxHelper(node->children[i], k, result);
+                if (k <= 0) return; 
+
+                // 2. 再處理自己節點內的資料 (跳過最後一次，因為 i=0 時左邊沒有資料了)
+                if (i > 0) {
+                    result.push_back(node->entries[i - 1]);
+                    k--;
+                    if (k <= 0) return;
+                }
+            }
+        }
+    }
+
 public:
     Two_Three_Tree() {
         root = nullptr;
@@ -849,6 +918,39 @@ public:
     void clear() {
         root = nullptr;
         nodeCount = 0;
+    }
+    
+    /// MARK:
+    void printTopKMax(int k, const std::vector<GraduateInfo>& temp_info) {
+        if (root == nullptr) {
+            std::cout << "Tree is empty." << std::endl;
+            return;
+        }
+
+        std::vector<DataEntry> topKEntries;
+        int originalK = k; 
+        
+        // 呼叫遞迴函式開始搜尋
+        topKMaxHelper(root, k, topKEntries);
+
+        std::cout << "=== Top " << originalK << " Max Student Counts ===" << std::endl;
+        
+        // 將找到的 Top-K 結果印出
+        for (const auto& entry : topKEntries) {
+            std::cout << "Student Count: " << entry.studentCount 
+                      << " (Total Departments: " << entry.ids.size() << ")" << std::endl;
+            
+            // 如果需要把相同學生人數的科系詳細資料都印出來，可以取消下方註解：
+            /*
+            for (int id : entry.ids) {
+                int index = id - 1; // 假設你的檔案 id 是從 1 開始，對應 vector 要 -1
+                std::cout << "   -> [" << id << "] " 
+                          << temp_info[index].getSchoolName() << ", " 
+                          << temp_info[index].getDeptName() << std::endl;
+            }
+            */
+        }
+        std::cout << "=======================================" << std::endl;
     }
 
     void insert(int studentCount, int id) {
@@ -915,268 +1017,268 @@ public:
 // ======================= 新增 2-3-4 Tree 實作 =======================
 
 // 2-3-4 樹節點 (可容納 1~3 個 Entry，4 個時觸發分裂)
-struct T234_TreeNode {  
-    vector<DataEntry> entries; 
-    vector<T234_TreeNode*> children; 
-    bool isLeaf;
-    T234_TreeNode() {
-        isLeaf = true;
-    }
-};
+// struct T234_TreeNode {  
+//     vector<DataEntry> entries; 
+//     vector<T234_TreeNode*> children; 
+//     bool isLeaf;
+//     T234_TreeNode() {
+//         isLeaf = true;
+//     }
+// };
     
-// 分裂結果 (2-3-4 Tree 專用)
-struct T234_SplitResult {
-    DataEntry* promotedEntry = nullptr; 
-    T234_TreeNode* rightNode = nullptr;      
-};
+// // 分裂結果 (2-3-4 Tree 專用)
+// struct T234_SplitResult {
+//     DataEntry* promotedEntry = nullptr; 
+//     T234_TreeNode* rightNode = nullptr;      
+// };
 
-class Two_Three_Four_Tree {
- private:
-    T234_TreeNode* root;
-    int nodeCount;
+// class Two_Three_Four_Tree {
+//  private:
+//     T234_TreeNode* root;
+//     int nodeCount;
 
-    void insertIntoNode(T234_TreeNode* node, const DataEntry& entry, T234_TreeNode* rightChild = nullptr) {
-        int i = 0;
-        // 尋找適合插入的位置
-        while (i < node->entries.size() && entry.studentCount > node->entries[i].studentCount) {
-            i++;
-        }
-        // 將資料插入到正確的 index
-        node->entries.insert(node->entries.begin() + i, entry);
+//     void insertIntoNode(T234_TreeNode* node, const DataEntry& entry, T234_TreeNode* rightChild = nullptr) {
+//         int i = 0;
+//         // 尋找適合插入的位置
+//         while (i < node->entries.size() && entry.studentCount > node->entries[i].studentCount) {
+//             i++;
+//         }
+//         // 將資料插入到正確的 index
+//         node->entries.insert(node->entries.begin() + i, entry);
 
-        // 如果有伴隨分裂產生的右子節點，也要插入到對應的 children 陣列中
-        if (rightChild != nullptr) {
-            node->children.insert(node->children.begin() + i + 1, rightChild);
-        }
-    }
+//         // 如果有伴隨分裂產生的右子節點，也要插入到對應的 children 陣列中
+//         if (rightChild != nullptr) {
+//             node->children.insert(node->children.begin() + i + 1, rightChild);
+//         }
+//     }
 
-    // 處理 2-3-4 Tree 的插入與分裂邏輯
-    T234_SplitResult insertRecursive(T234_TreeNode* node, int studentCount, int id) {
-        T234_SplitResult result;
+//     // 處理 2-3-4 Tree 的插入與分裂邏輯
+//     T234_SplitResult insertRecursive(T234_TreeNode* node, int studentCount, int id) {
+//         T234_SplitResult result;
 
-        // 1. 檢查目前節點內是否已經存在相同的 studentCount
-        for (int i = 0; i < node->entries.size(); i++) {
-            if (node->entries[i].studentCount == studentCount) {
-                node->entries[i].ids.push_back(id);
-                return result;
-            }
-        }
+//         // 1. 檢查目前節點內是否已經存在相同的 studentCount
+//         for (int i = 0; i < node->entries.size(); i++) {
+//             if (node->entries[i].studentCount == studentCount) {
+//                 node->entries[i].ids.push_back(id);
+//                 return result;
+//             }
+//         }
 
-        // 2. 判斷目前是否走到葉節點 (Leaf)
-        if (node->isLeaf) {
-            insertIntoNode(node, DataEntry(studentCount, id));
-        } else {
-            int childIdx = 0;
-            while (childIdx < node->entries.size() && studentCount > node->entries[childIdx].studentCount) {
-                childIdx++;
-            }
+//         // 2. 判斷目前是否走到葉節點 (Leaf)
+//         if (node->isLeaf) {
+//             insertIntoNode(node, DataEntry(studentCount, id));
+//         } else {
+//             int childIdx = 0;
+//             while (childIdx < node->entries.size() && studentCount > node->entries[childIdx].studentCount) {
+//                 childIdx++;
+//             }
 
-            // 往下遞迴
-            T234_SplitResult childResult = insertRecursive(node->children[childIdx], studentCount, id);
+//             // 往下遞迴
+//             T234_SplitResult childResult = insertRecursive(node->children[childIdx], studentCount, id);
 
-            if (childResult.promotedEntry != nullptr) {
-                insertIntoNode(node, *childResult.promotedEntry, childResult.rightNode);
-                delete childResult.promotedEntry;
-            }
-        }
+//             if (childResult.promotedEntry != nullptr) {
+//                 insertIntoNode(node, *childResult.promotedEntry, childResult.rightNode);
+//                 delete childResult.promotedEntry;
+//             }
+//         }
 
-        // 3. 檢查 Overflow：2-3-4 樹最大容量為 3，等於 4 時需要分裂
-        if (node->entries.size() == 4) {
-            T234_TreeNode* rightSibling = new T234_TreeNode();
-            rightSibling->isLeaf = node->isLeaf;
-            nodeCount++; 
+//         // 3. 檢查 Overflow：2-3-4 樹最大容量為 3，等於 4 時需要分裂
+//         if (node->entries.size() == 4) {
+//             T234_TreeNode* rightSibling = new T234_TreeNode();
+//             rightSibling->isLeaf = node->isLeaf;
+//             nodeCount++; 
 
-            // 將右半部 (第 3, 4 個) 元素搬給新節點 (index 2, 3)
-            rightSibling->entries.push_back(node->entries[2]);
-            rightSibling->entries.push_back(node->entries[3]);
+//             // 將右半部 (第 3, 4 個) 元素搬給新節點 (index 2, 3)
+//             rightSibling->entries.push_back(node->entries[2]);
+//             rightSibling->entries.push_back(node->entries[3]);
 
-            if (!node->isLeaf) {
-                rightSibling->children.push_back(node->children[2]);
-                rightSibling->children.push_back(node->children[3]);
-                rightSibling->children.push_back(node->children[4]);
-                node->children.resize(2); // 原本的節點保留前 2 個子樹
-            }
+//             if (!node->isLeaf) {
+//                 rightSibling->children.push_back(node->children[2]);
+//                 rightSibling->children.push_back(node->children[3]);
+//                 rightSibling->children.push_back(node->children[4]);
+//                 node->children.resize(2); // 原本的節點保留前 2 個子樹
+//             }
 
-            // 將中間偏左的元素 (index 1) Promote 給上一層
-            result.promotedEntry = new DataEntry(node->entries[1]);
-            result.rightNode = rightSibling; 
+//             // 將中間偏左的元素 (index 1) Promote 給上一層
+//             result.promotedEntry = new DataEntry(node->entries[1]);
+//             result.rightNode = rightSibling; 
 
-            // 移除被分裂與被推擠出去的元素，左節點只保留 index 0
-            node->entries.pop_back(); 
-            node->entries.pop_back(); 
-            node->entries.pop_back(); 
-        }
+//             // 移除被分裂與被推擠出去的元素，左節點只保留 index 0
+//             node->entries.pop_back(); 
+//             node->entries.pop_back(); 
+//             node->entries.pop_back(); 
+//         }
 
-        return result;
-    }
+//         return result;
+//     }
 
-    // 取得子樹中的最小值節點
-    T234_TreeNode* getMinNode(T234_TreeNode* node) {
-        while (!node->isLeaf) {
-            node = node->children[0];
-        }
-        return node;
-    }
+//     // 取得子樹中的最小值節點
+//     T234_TreeNode* getMinNode(T234_TreeNode* node) {
+//         while (!node->isLeaf) {
+//             node = node->children[0];
+//         }
+//         return node;
+//     }
 
-    // 處理節點 Underflow (在 B-Tree 機制中，2-3 與 2-3-4 樹的 Underflow 同樣發生在元素數量降至 0)
-    void fixUnderflow(T234_TreeNode* parent, int childIndex) {
-        T234_TreeNode* child = parent->children[childIndex];
+//     // 處理節點 Underflow (在 B-Tree 機制中，2-3 與 2-3-4 樹的 Underflow 同樣發生在元素數量降至 0)
+//     void fixUnderflow(T234_TreeNode* parent, int childIndex) {
+//         T234_TreeNode* child = parent->children[childIndex];
 
-        // 1. 若左兄弟有多餘的項目 (>1 即至少為 2 階)，向左兄弟借
-        if (childIndex > 0 && parent->children[childIndex - 1]->entries.size() > 1) {
-            T234_TreeNode* leftSib = parent->children[childIndex - 1];
-            child->entries.insert(child->entries.begin(), parent->entries[childIndex - 1]);
-            parent->entries[childIndex - 1] = leftSib->entries.back();
-            leftSib->entries.pop_back();
+//         // 1. 若左兄弟有多餘的項目 (>1 即至少為 2 階)，向左兄弟借
+//         if (childIndex > 0 && parent->children[childIndex - 1]->entries.size() > 1) {
+//             T234_TreeNode* leftSib = parent->children[childIndex - 1];
+//             child->entries.insert(child->entries.begin(), parent->entries[childIndex - 1]);
+//             parent->entries[childIndex - 1] = leftSib->entries.back();
+//             leftSib->entries.pop_back();
 
-            if (!leftSib->isLeaf) {
-                child->children.insert(child->children.begin(), leftSib->children.back());
-                leftSib->children.pop_back();
-            }
-        }
-        // 2. 若右兄弟有多餘的項目 (>1)，向右兄弟借
-        else if (childIndex < parent->children.size() - 1 && parent->children[childIndex + 1]->entries.size() > 1) {
-            T234_TreeNode* rightSib = parent->children[childIndex + 1];
-            child->entries.push_back(parent->entries[childIndex]);
-            parent->entries[childIndex] = rightSib->entries.front();
-            rightSib->entries.erase(rightSib->entries.begin());
+//             if (!leftSib->isLeaf) {
+//                 child->children.insert(child->children.begin(), leftSib->children.back());
+//                 leftSib->children.pop_back();
+//             }
+//         }
+//         // 2. 若右兄弟有多餘的項目 (>1)，向右兄弟借
+//         else if (childIndex < parent->children.size() - 1 && parent->children[childIndex + 1]->entries.size() > 1) {
+//             T234_TreeNode* rightSib = parent->children[childIndex + 1];
+//             child->entries.push_back(parent->entries[childIndex]);
+//             parent->entries[childIndex] = rightSib->entries.front();
+//             rightSib->entries.erase(rightSib->entries.begin());
 
-            if (!rightSib->isLeaf) {
-                child->children.push_back(rightSib->children.front());
-                rightSib->children.erase(rightSib->children.begin());
-            }
-        }
-        // 3. 只能與左兄弟合併
-        else if (childIndex > 0) {
-            T234_TreeNode* leftSib = parent->children[childIndex - 1];
-            leftSib->entries.push_back(parent->entries[childIndex - 1]); 
+//             if (!rightSib->isLeaf) {
+//                 child->children.push_back(rightSib->children.front());
+//                 rightSib->children.erase(rightSib->children.begin());
+//             }
+//         }
+//         // 3. 只能與左兄弟合併
+//         else if (childIndex > 0) {
+//             T234_TreeNode* leftSib = parent->children[childIndex - 1];
+//             leftSib->entries.push_back(parent->entries[childIndex - 1]); 
 
-            for (auto& e : child->entries) leftSib->entries.push_back(e);
-            for (auto& c : child->children) leftSib->children.push_back(c);
+//             for (auto& e : child->entries) leftSib->entries.push_back(e);
+//             for (auto& c : child->children) leftSib->children.push_back(c);
 
-            parent->entries.erase(parent->entries.begin() + (childIndex - 1));
-            parent->children.erase(parent->children.begin() + childIndex);
+//             parent->entries.erase(parent->entries.begin() + (childIndex - 1));
+//             parent->children.erase(parent->children.begin() + childIndex);
 
-            delete child;
-            nodeCount--;
-        }
-        // 4. 只能與右兄弟合併
-        else {
-            T234_TreeNode* rightSib = parent->children[childIndex + 1];
-            child->entries.push_back(parent->entries[childIndex]); 
+//             delete child;
+//             nodeCount--;
+//         }
+//         // 4. 只能與右兄弟合併
+//         else {
+//             T234_TreeNode* rightSib = parent->children[childIndex + 1];
+//             child->entries.push_back(parent->entries[childIndex]); 
 
-            for (auto& e : rightSib->entries) child->entries.push_back(e);
-            for (auto& c : rightSib->children) child->children.push_back(c);
+//             for (auto& e : rightSib->entries) child->entries.push_back(e);
+//             for (auto& c : rightSib->children) child->children.push_back(c);
 
-            parent->entries.erase(parent->entries.begin() + childIndex);
-            parent->children.erase(parent->children.begin() + (childIndex + 1));
+//             parent->entries.erase(parent->entries.begin() + childIndex);
+//             parent->children.erase(parent->children.begin() + (childIndex + 1));
 
-            delete rightSib;
-            nodeCount--;
-        }
-    }
+//             delete rightSib;
+//             nodeCount--;
+//         }
+//     }
 
-    bool removeRecursive(T234_TreeNode* node, int studentCount) {
-        int i = 0;
-        while (i < node->entries.size() && studentCount > node->entries[i].studentCount) {
-            i++;
-        }
+//     bool removeRecursive(T234_TreeNode* node, int studentCount) {
+//         int i = 0;
+//         while (i < node->entries.size() && studentCount > node->entries[i].studentCount) {
+//             i++;
+//         }
 
-        if (i < node->entries.size() && node->entries[i].studentCount == studentCount) {
-            if (node->isLeaf) {
-                node->entries.erase(node->entries.begin() + i);
-                return true;
-            } else {
-                T234_TreeNode* minNode = getMinNode(node->children[i + 1]);
-                DataEntry successorData = minNode->entries[0];
-                node->entries[i] = successorData; 
+//         if (i < node->entries.size() && node->entries[i].studentCount == studentCount) {
+//             if (node->isLeaf) {
+//                 node->entries.erase(node->entries.begin() + i);
+//                 return true;
+//             } else {
+//                 T234_TreeNode* minNode = getMinNode(node->children[i + 1]);
+//                 DataEntry successorData = minNode->entries[0];
+//                 node->entries[i] = successorData; 
 
-                removeRecursive(node->children[i + 1], successorData.studentCount);
+//                 removeRecursive(node->children[i + 1], successorData.studentCount);
 
-                if (node->children[i + 1]->entries.empty()) {
-                    fixUnderflow(node, i + 1);
-                }
-                return true;
-            }
-        }
-        else {
-            if (node->isLeaf) return false; 
+//                 if (node->children[i + 1]->entries.empty()) {
+//                     fixUnderflow(node, i + 1);
+//                 }
+//                 return true;
+//             }
+//         }
+//         else {
+//             if (node->isLeaf) return false; 
 
-            bool deleted = removeRecursive(node->children[i], studentCount);
+//             bool deleted = removeRecursive(node->children[i], studentCount);
             
-            if (deleted && node->children[i]->entries.empty()) {
-                fixUnderflow(node, i);
-            }
-            return deleted;
-        }
-    }
+//             if (deleted && node->children[i]->entries.empty()) {
+//                 fixUnderflow(node, i);
+//             }
+//             return deleted;
+//         }
+//     }
 
-public:
-    Two_Three_Four_Tree() {
-        root = nullptr;
-        nodeCount = 0;
-    }
+// public:
+//     Two_Three_Four_Tree() {
+//         root = nullptr;
+//         nodeCount = 0;
+//     }
 
-    void clear() {
-        root = nullptr;
-        nodeCount = 0;
-    }
+//     void clear() {
+//         root = nullptr;
+//         nodeCount = 0;
+//     }
 
-    void insert(int studentCount, int id) {
-        if (root == nullptr) {
-            root = new T234_TreeNode();
-            root->entries.push_back(DataEntry(studentCount, id));
-            nodeCount++;
-            return;
-        }
+//     void insert(int studentCount, int id) {
+//         if (root == nullptr) {
+//             root = new T234_TreeNode();
+//             root->entries.push_back(DataEntry(studentCount, id));
+//             nodeCount++;
+//             return;
+//         }
 
-        T234_SplitResult res = insertRecursive(root, studentCount, id);
+//         T234_SplitResult res = insertRecursive(root, studentCount, id);
         
-        if (res.promotedEntry != nullptr) {
-            T234_TreeNode* newRoot = new T234_TreeNode();
-            newRoot->isLeaf = false;
-            newRoot->entries.push_back(*res.promotedEntry);
-            newRoot->children.push_back(root);
-            newRoot->children.push_back(res.rightNode);
+//         if (res.promotedEntry != nullptr) {
+//             T234_TreeNode* newRoot = new T234_TreeNode();
+//             newRoot->isLeaf = false;
+//             newRoot->entries.push_back(*res.promotedEntry);
+//             newRoot->children.push_back(root);
+//             newRoot->children.push_back(res.rightNode);
             
-            root = newRoot;
-            nodeCount++;
-            delete res.promotedEntry;
-        }
-    }
+//             root = newRoot;
+//             nodeCount++;
+//             delete res.promotedEntry;
+//         }
+//     }
 
-    void remove(int studentCount) {
-        if (root == nullptr) return;
-        removeRecursive(root, studentCount);
+//     void remove(int studentCount) {
+//         if (root == nullptr) return;
+//         removeRecursive(root, studentCount);
 
-        if (root->entries.empty()) {
-            if (root->isLeaf) {
-                delete root;
-                root = nullptr;
-                nodeCount--;
-            } else {
-                T234_TreeNode* oldRoot = root;
-                root = root->children[0];
-                delete oldRoot;
-                nodeCount--; 
-            }
-        }
-    }
+//         if (root->entries.empty()) {
+//             if (root->isLeaf) {
+//                 delete root;
+//                 root = nullptr;
+//                 nodeCount--;
+//             } else {
+//                 T234_TreeNode* oldRoot = root;
+//                 root = root->children[0];
+//                 delete oldRoot;
+//                 nodeCount--; 
+//             }
+//         }
+//     }
 
-    int getHeight() {
-        if (root == nullptr) return 0;
-        int height = 1;
-        T234_TreeNode* current = root;
-        while (!current->isLeaf) {
-            height++;
-            current = current->children[0];
-        }
-        return height;
-    }
+//     int getHeight() {
+//         if (root == nullptr) return 0;
+//         int height = 1;
+//         T234_TreeNode* current = root;
+//         while (!current->isLeaf) {
+//             height++;
+//             current = current->children[0];
+//         }
+//         return height;
+//     }
 
-    int getNodeCount() { return nodeCount; }
-    T234_TreeNode* getRoot() { return root; }
-};
+//     int getNodeCount() { return nodeCount; }
+//     T234_TreeNode* getRoot() { return root; }
+// };
 
 
 
