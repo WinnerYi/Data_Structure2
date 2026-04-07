@@ -1302,8 +1302,6 @@ void doTask(string cmd) {
 
    
     avl_tree.printRootData(info);
-    
-
   } 
 }
 
@@ -1311,6 +1309,7 @@ void doTask(string cmd) {
 
 int main() {
   UniversityCatalog uc;
+  bool has_cmd2 = false;
   
   while (true) {
     PrintTitle();
@@ -1320,6 +1319,7 @@ int main() {
     } else if (cmd == "1"){
       cout << endl;
       if (uc.fetchFile()) {
+        has_cmd2 = false;
         uc.doTask(cmd);
         printf("\n");
       }
@@ -1327,8 +1327,26 @@ int main() {
       if (uc.getInfoCount() == 0) {
         cout << "### Choose 1 first. ###\n";
       } else {
+        has_cmd2 = true;
         uc.doTask(cmd);
       }
+
+    } else if (cmd == "3") {
+        if (uc.getInfoCount() == 0) {
+          cout << "### Choose 1 first. ###\n";
+        } else {
+          uc.doTask(cmd); // to do:
+        }
+    
+    } else if (cmd == "4") {
+        if (uc.getInfoCount() == 0) {
+          cout << "### Choose 1 first. ###\n";
+        } else if (!has_cmd2) {
+          cout << "### Choose 2 first. ###\n";
+        } else {
+          uc.doTask(cmd); // todo:
+        }
+
 
     } else cout << "\nCommand does not exist!\n";
     
