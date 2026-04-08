@@ -14,7 +14,6 @@ void SkipSpace(string &str);
 string ReadInput();
 int safeStoi(string s);
 
-
 class GraduateInfo{ 
  private:
   int id;
@@ -136,16 +135,13 @@ class AVLTree {
             node->right = insertNode(node->right, dept, id);
         } else {
             // 3. 科系名稱相同！不新增節點，直接把序號加入原節點的 vector 中
-            // 因為是「依序號由小到大一筆一筆新增」，所以 push_back 就會是排好序的
             node->ids.push_back(id);
-            return node; // 沒有新增節點，樹高不變，直接 return
+            return node; 
         }
 
-        // 更新高度與檢查平衡 (只有新增節點才會走到這裡)
         updateHeight(node);
         int balance = getBalance(node);
 
-        // 判斷並執行旋轉 (字串比較)
         if (balance > 1 && dept < node->left->deptName) return rotateLL(node);
         if (balance < -1 && dept > node->right->deptName) return rotateRR(node);
         if (balance > 1 && dept > node->left->deptName) return rotateLR(node);
@@ -154,7 +150,6 @@ class AVLTree {
         return node;
     }
 
-    // 尋找樹中的最小值節點 (用於刪除時尋找右子樹的 Inorder Successor)
     AVLNode* minValueNode(AVLNode* node) {
         AVLNode* current = node;
         while (current->left != nullptr) {
@@ -165,7 +160,6 @@ class AVLTree {
 
     // 內部遞迴 Delete
     AVLNode* deleteNode(AVLNode* node, std::string dept) {
-        // 1. 標準 BST 刪除
         if (node == nullptr) return node;
 
         if (dept < node->deptName) {
@@ -173,7 +167,6 @@ class AVLTree {
         } else if (dept > node->deptName) {
             node->right = deleteNode(node->right, dept);
         } else {
-            // 找到要刪除的節點
             if (node->left == nullptr) {
                 AVLNode* temp = node->right;
                 delete node;
@@ -183,54 +176,35 @@ class AVLTree {
                 delete node;
                 node = temp;
             } else {
-                // 有兩個子節點：尋找右子樹的最小值節點做為替代
                 AVLNode* temp = minValueNode(node->right);
-
-                // 複製替代節點的資料過來
                 node->deptName = temp->deptName;
                 node->ids = temp->ids;
-
-                // 刪除該替代節點
                 node->right = deleteNode(node->right, temp->deptName);
             }
         }
 
-        // 如果刪除後樹為空，直接回傳
         if (node == nullptr) return node;
 
-        // 2. 沿著路徑往上更新高度
         updateHeight(node);
-
-        // 3. 檢查平衡因子 (Balance Factor)
         int balance = getBalance(node);
 
-        // 4. 如果不平衡，進行旋轉修復
-        // Left Left Case
         if (balance > 1 && getBalance(node->left) >= 0)
             return rotateLL(node);
-
-        // Left Right Case
         if (balance > 1 && getBalance(node->left) < 0)
             return rotateLR(node);
-
-        // Right Right Case
         if (balance < -1 && getBalance(node->right) <= 0)
             return rotateRR(node);
-
-        // Right Left Case
         if (balance < -1 && getBalance(node->right) > 0)
             return rotateRL(node);
 
         return node;
     }
 
-    // 遞迴計算節點總數
     int countNodes(AVLNode* node) {
         if (node == nullptr) return 0;
         return 1 + countNodes(node->left) + countNodes(node->right);
     }
 
-    // 遞迴清空樹
     void clearTree(AVLNode* node) {
         if (node != nullptr) {
             clearTree(node->left);
@@ -241,12 +215,9 @@ class AVLTree {
 
     /// MARK: 內部遞迴：尋找特定科系的節點
     AVLNode* searchNode(AVLNode* node, string dept) {
-        // 1. 沒找到，或找到底了
         if (node == nullptr || node->deptName == dept) {
             return node;
         }
-
-        // 2. 依照字典序決定往左或往右找
         if (dept < node->deptName) {
             return searchNode(node->left, dept);
         } else {
@@ -258,52 +229,33 @@ public:
     AVLTree() { root = nullptr; }
     ~AVLTree() { clearTree(root); }
 
-    
-
     void insert(string dept, int id) {
         root = insertNode(root, dept, id);
     }
 
-    // 新增的對外開放刪除函式
     void remove(string dept) {
         root = deleteNode(root, dept);
     }
 
-    /// MARK: 對外開放的精確搜尋介面
-    void exactSearch(string dept, const vector<GraduateInfo>& temp_info) {
+    /// MARK: 取得特定科系的所有 ids (供任務四使用)
+    vector<int> getIds(string dept) {
         AVLNode* result = searchNode(root, dept);
-
         if (result == nullptr) {
-            cout << "Found 0 data regarding '" << dept << "'" << endl;
-            return;
+            return {};
         }
-
-        // 如果找到了，印出該節點內 vector 儲存的所有相關序號資料
-        for (int i = 0; i < result->ids.size(); i++) {
-            int index = result->ids[i] - 1; // 假設序號從 1 開始，對應 vector 索引需 -1
-            // cout << (i + 1) << ": [" << result->ids[i] << "] " 
-            //      << temp_info[index].getSchoolName() << ", " 
-            //      << temp_info[index].getDeptName() << ", " 
-            //      << temp_info[index].getEducationDivision() << ", " 
-            //      << temp_info[index].getLevel() << ", " 
-            //      << temp_info[index].getStudentCount() << ", " 
-            //      << temp_info[index].getLastYearGraduatesCount() << endl;
-        }
+        return result->ids;
     }
 
     // --- 題目要求的三個最終輸出 ---
 
-    // 1. 找出整棵樹的樹高
     int getTreeHeight() {
         return getHeight(root);
     }
 
-    // 2. 找出整棵樹的節點數
     int getTotalNodes() {
         return countNodes(root);
     }
 
-    // 3. 找出樹根內的所有資料
     void printRootData(vector<GraduateInfo> temp_info) {
         if (root == nullptr) {
             cout << "Tree is empty." << endl;
@@ -330,7 +282,6 @@ public:
         root = nullptr;
     }
 };
-
 
 // 資料項目 (2-3 樹節點內儲存的資料單元)
 struct DataEntry {
@@ -365,24 +316,19 @@ class Two_Three_Tree {
 
     void insertIntoNode(TreeNode* node, const DataEntry& entry, TreeNode* rightChild = nullptr) {
         int i = 0;
-        // 尋找適合插入的位置
         while (i < node->entries.size() && entry.studentCount > node->entries[i].studentCount) {
             i++;
         }
-        // 將資料插入到正確的 index
         node->entries.insert(node->entries.begin() + i, entry);
 
-        // 如果有伴隨分裂產生的右子節點，也要插入到對應的 children 陣列中
         if (rightChild != nullptr) {
             node->children.insert(node->children.begin() + i + 1, rightChild);
         }
     }
 
-    // 處理 2-3 Tree 的插入與分裂邏輯
     SplitResult insertRecursive(TreeNode* node, int studentCount, int id) {
         SplitResult result;
 
-        // 1. 檢查目前節點內是否已經存在相同的 studentCount
         for (int i = 0; i < node->entries.size(); i++) {
             if (node->entries[i].studentCount == studentCount) {
                 node->entries[i].ids.push_back(id);
@@ -390,80 +336,59 @@ class Two_Three_Tree {
             }
         }
 
-        // 2. 判斷目前是否走到葉節點 (Leaf)
         if (node->isLeaf) {
-            // 到達葉節點：直接將新資料插入
             insertIntoNode(node, DataEntry(studentCount, id));
         } else {
-            // 是內部節點 (Internal Node)：決定要往哪一個子樹繼續走
             int childIdx = 0;
             while (childIdx < node->entries.size() && studentCount > node->entries[childIdx].studentCount) {
                 childIdx++;
             }
 
-            // 往下遞迴呼叫子節點進行插入
             SplitResult childResult = insertRecursive(node->children[childIdx], studentCount, id);
 
-            // 檢查子節點插入後是否有發生分裂(有元素被推擠上來)
             if (childResult.promotedEntry != nullptr) {
-                // 將下方推擠上來的元素與新產生的右子樹，合併回目前的節點中
                 insertIntoNode(node, *childResult.promotedEntry, childResult.rightNode);
                 delete childResult.promotedEntry;
             }
         }
 
-        // 3. 檢查目前節點是否發生 Overflow
         if (node->entries.size() == 3) {
-            // 建立一個新的右兄弟節點來接收分裂出去的資料
             TreeNode* rightSibling = new TreeNode();
             rightSibling->isLeaf = node->isLeaf;
             nodeCount++; 
 
-            // 將原本節點最右邊 (第3個) 的元素搬給新節點
             rightSibling->entries.push_back(node->entries[2]);
 
-            // 如果目前節點不是葉節點，連同對應的子樹指標也要搬過去
             if (!node->isLeaf) {
                 rightSibling->children.push_back(node->children[2]);
                 rightSibling->children.push_back(node->children[3]);
-                node->children.resize(2); // 原本的節點只保留前 2 個子樹
+                node->children.resize(2); 
             }
 
-            // 將中間的元素Promote)給上一層處理
             result.promotedEntry = new DataEntry(node->entries[1]);
-            result.rightNode = rightSibling; // 綁定剛剛分裂出來的右節點
+            result.rightNode = rightSibling; 
 
-            // 只保留最左邊的元素
             node->entries.pop_back(); 
             node->entries.pop_back(); 
         }
 
-        // 回傳處理結果給上一層遞迴
         return result;
     }
 
 
-    //內部遞迴：2-3 樹的反向中序遍歷 (大 -> 小)
     void topKMaxHelper(TreeNode* node, int& k, vector<DataEntry>& result) {
-        // 節點為空或已經找滿 K 個，提早結束 (Pruning)
         if (node == nullptr || k <= 0) return;
 
         if (node->isLeaf) {
-            // 情況 A：如果是葉節點，直接從陣列最右邊 (最大值) 開始取
             for (int i = node->entries.size() - 1; i >= 0 && k > 0; i--) {
                 result.push_back(node->entries[i]);
-                k--; // 找到一個 Key，K 減 1
+                k--; 
             }
         } else {
-            // 情況 B：如果是內部節點，子樹與資料要「交替」走訪
-            // 如果 entries 有 2 個，children 就有 3 個。索引 i 會從 2 開始遞減到 0。
             for (int i = node->entries.size(); i >= 0; i--) {
-                
-                // 1. 先往右側的子樹走
                 topKMaxHelper(node->children[i], k, result);
                 if (k <= 0) return; 
 
-                // 2. 再處理自己節點內的資料 (跳過最後一次，因為 i=0 時左邊沒有資料了)
                 if (i > 0) {
                     result.push_back(node->entries[i - 1]);
                     k--;
@@ -491,11 +416,9 @@ public:
 
         std::vector<DataEntry> topKEntries;
         
-        // 呼叫遞迴函式開始搜尋
         topKMaxHelper(root, k, topKEntries);
 
         int serialNum = 1;
-        // 將找到的 Top-K 結果依規定格式印出
         for (const auto& entry : topKEntries) {
             for (int id : entry.ids) {
                 int index = id - 1; 
@@ -520,7 +443,6 @@ public:
 
         SplitResult res = insertRecursive(root, studentCount, id);
         
-        // 如果 Root 也分裂了，整棵樹長高，產生新的 Root
         if (res.promotedEntry != nullptr) {
             TreeNode* newRoot = new TreeNode();
             newRoot->isLeaf = false;
@@ -549,7 +471,6 @@ public:
     int getNodeCount() { return nodeCount; }
     TreeNode* getRoot() { return root; }
 };
-
 
 class UniversityCatalog {
  private:
@@ -623,15 +544,12 @@ class UniversityCatalog {
         info.push_back(g); 
         int sCount = safeStoi(studentCount);
      
-        
         tree23.insert(sCount, count_id); 
-        
         count_id++;
     }
     in.close();
     return true;
 }
-
 
 void doTask(string cmd) { 
   if (cmd == "1") {
@@ -642,12 +560,10 @@ void doTask(string cmd) {
     TreeNode* rootNode = tree23.getRoot();
     if (rootNode != nullptr) {
         int serialNum = 1;
-        // 走訪 Root 裡所有的 Entry
         for (int i = 0; i < rootNode->entries.size(); i++) {
-            // 走訪該 Entry 裡所有的 id (序號)
             for (int j = 0; j < rootNode->entries[i].ids.size(); j++) {
                 int targetId = rootNode->entries[i].ids[j];
-                GraduateInfo targetData = info[targetId - 1]; // 陣列 index 從 0 開始
+                GraduateInfo targetData = info[targetId - 1]; 
 
                 cout << serialNum++ << ": [" 
                      << targetData.getId() << "] "
@@ -662,7 +578,6 @@ void doTask(string cmd) {
         }
     }
   } else if (cmd == "2") {
-
     if (cur_txt_path == last_txt_path) {
       cout << "### AVL tree has been built. ###\n";
     } else {
@@ -672,18 +587,103 @@ void doTask(string cmd) {
       }
       last_txt_path = cur_txt_path;
     }
-
    
     avl_tree.printRootData(info);
-  } else if (cmd == "3") { // 任務三
-    cout << "Enter K in [1," << info.size() << "]: ";
-    string k_str = ReadInput();
-    int k = safeStoi(k_str);
+  } else if (cmd == "3") { 
+    bool has_print = false;
+    cout << "\nEnter K in [1," << info.size() << "]: ";
+    int k;
+    std::cin >> k;
     
-    // 檢查 K 是否為合法數字且落於正確範圍內，否則不輸出並跳回選單
     if (k >= 1 && k <= info.size()) {
         tree23.printTopKMax(k, info);
+        has_print = true;
     }
+    if (has_print)  printf ("\n");
+   
+  } else if (cmd == "4") {
+    // 任務四：AVL 樹字串精確搜尋
+        bool has_print = false;
+        cout << "Enter a department name to search: ";
+        string dept = ReadInput();
+        
+
+        // 從 AVL Tree 撈出該科系對應的所有 ids
+        vector<int> matched_ids = avl_tree.getIds(dept);
+
+        if (matched_ids.empty()) {
+            printf("\n");
+            cout << dept << " is not found!" << endl;
+            return;
+        }
+        printf("\n");
+        cout << "Enter K in [1," << matched_ids.size() << "]: ";
+        
+        int k;
+        std::cin >> k;
+
+        if (k >= 1 && k <= matched_ids.size()) {
+            // 用來輔助排序的自訂結構
+            struct SortItem {
+                int id;
+                int studentCount;
+            };
+
+            vector<SortItem> items;
+            for (int id : matched_ids) {
+                items.push_back({id, safeStoi(info[id - 1].getStudentCount())});
+            }
+
+            // 手刻 Bubble Sort (氣泡排序) 來取代 std::sort
+            int n = items.size();
+            for (int i = 0; i < n - 1; i++) {
+                for (int j = 0; j < n - i - 1; j++) {
+                    bool swap_needed = false;
+                    
+                    // 條件一：學生數遞減排序
+                    if (items[j].studentCount < items[j + 1].studentCount) {
+                        swap_needed = true;
+                    } 
+                    // 條件二：若學生數相同，則依序號遞增排序
+                    else if (items[j].studentCount == items[j + 1].studentCount) {
+                        if (items[j].id > items[j + 1].id) {
+                            swap_needed = true;
+                        }
+                    }
+
+                    if (swap_needed) {
+                        SortItem temp = items[j];
+                        items[j] = items[j + 1];
+                        items[j + 1] = temp;
+                    }
+                }
+            }
+
+            // 處理「同值超額輸出」的邊界條件
+            int printCount = k;
+            int boundaryValue = items[k - 1].studentCount;
+            while (printCount < items.size() && items[printCount].studentCount == boundaryValue) {
+                printCount++;
+            }
+
+            // 格式化輸出
+            
+            for (int i = 0; i < printCount; i++) {
+                int id = items[i].id;
+                int index = id - 1;
+                cout << (i + 1) << ": [" << id << "] " 
+                     << info[index].getSchoolName() << ", " 
+                     << info[index].getDeptName() << ", " 
+                     << info[index].getEducationDivision() << ", " 
+                     << info[index].getLevel() << ", " 
+                     << info[index].getStudentCount() << ", " 
+                     << info[index].getLastYearGraduatesCount() << endl;
+                has_print = true;
+            }
+
+        }
+        if (has_print) printf ("\n");
+    
   }
 }
 
@@ -695,7 +695,7 @@ int main() {
   
   while (true) {
     PrintTitle();
-    string cmd = ReadInput(); // demo防呆
+    string cmd = ReadInput(); 
     if (cmd == "0") { 
       return 0;
     } else if (cmd == "1"){
@@ -724,11 +724,10 @@ int main() {
         if (uc.getInfoCount() == 0) {
           cout << "### Choose 1 first. ###\n";
         } else if (!has_cmd2) {
-          cout << "### Choose 2 first. ###\n";
+          cout << "### Choose 2 first. ###\n"; // 任務四的防呆機制：若尚未執行任務二建立 AVL 樹，暫不執行只輸出提示訊息
         } else {
-          uc.doTask(cmd); // todo:
+          uc.doTask(cmd); 
         }
-
 
     } else cout << "\nCommand does not exist!\n";
     
@@ -765,7 +764,7 @@ void SkipSpace(string &str) {
 
 int safeStoi(string s) {
     string cleanStr = "";
-    for (char c : s) { // 只保留數字字符
+    for (char c : s) { 
         if (c >= '0' && c <= '9') {
             cleanStr += c;
         }
