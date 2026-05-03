@@ -1,8 +1,4 @@
 // 11327217 蔡易勳   11327255許頌恩
-///TODO: 任務一   嘗試找到空位（最多查詢tableSize次以避免無限迴圈）不確定這樣是不是對的 ??
-// input996.txt 是測試找不到空位的檔案
-
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -47,7 +43,6 @@ struct StudentData { // struct 結構
 
 class GraduateInfo{ 
  private:
-  int id;
   StudentData data;
 
  public:
@@ -82,25 +77,41 @@ class UniversityCatalog {
   vector<GraduateInfo> info;
   vector<HashItem> hashTable;
   int tableSize;
+  string currentFileNum; // [新增] 用來記憶目前讀取的檔案編號，給任務二輸出用
   
  public:
   void reSet() {
     info.clear();
     hashTable.clear();
     tableSize = 0;
+    currentFileNum = "";
   }
 
   int getInfoCount() {
     return info.size();
   }
   
-  // 計算學號的哈希值：ASCII編碼相乘
+  // [修正] 計算學號的哈希值：邊乘邊取餘數避免溢位
   long long computeHash(string sid) {
     long long hashVal = 1;
     for (char c : sid) {
-      hashVal *= (int)c;
+      // 強制用 (unsigned char) 把字元當正數看
+      hashVal = (hashVal * (unsigned char)c) % tableSize; 
     }
+    // 終極防線：如果莫名其妙還是負數，把它救回正數
+    if (hashVal < 0) hashVal += tableSize; 
     return hashVal;
+  }
+
+  long long computeStep(string sid, int maxStep) {
+    long long stepVal = 1;
+    for (char c : sid) {
+      stepVal = (stepVal * (unsigned char)c) % maxStep;
+    }
+    if (stepVal < 0) stepVal += maxStep; // 防禦
+    long long step = maxStep - stepVal;
+    if (step <= 0) step = 1; // 步階絕對不能是 0 或負數
+    return step;
   }
   
   // Quadratic Probing：使用平方探測找空位
@@ -118,6 +129,7 @@ class UniversityCatalog {
       cout << "\n### " << bin_path << " does not exist! ###\n";
       readTextSaveBin(file_num);
       // 重新開啟二進制檔
+      in.clear();
       in.open(bin_path, ios::binary);
       if (in.fail()) {
         return;
@@ -125,21 +137,17 @@ class UniversityCatalog {
     }
     
     reSet();
+    currentFileNum = file_num; // 記憶檔名
     
-    vector<GraduateInfo> tempData;
+    // [修正] 讀進來的資料存進 info，任務二才能沿用
     GraduateInfo g;
     while (in.read((char*)&g, sizeof(GraduateInfo))) {
-      tempData.push_back(g);
+      info.push_back(g);
     }
     in.close();
     
-    // if (tempData.empty()) {
-    //   cout << "沒東西\n";
-    //   return;
-    // }
-    
     // 計算哈希表大小：>= 1.15 * 資料數的最小質數
-    int minSize = (int)(tempData.size() * 1.15) + 1;
+    int minSize = (int)(info.size() * 1.15) + 1;
     tableSize = findMinPrime(minSize);
     
     // 初始化哈希表
@@ -148,19 +156,20 @@ class UniversityCatalog {
     int dataInserted = 0;
     int dataSkipped = 0;
     
-    // 將資料插入哈希表
-    for (const auto& gData : tempData) {
+    // 在迴圈外面先算好最高探測次數： (表大小 + 1) / 2
+    int maxProbes = (tableSize + 1) / 2;
+    
+    for (const auto& gData : info) {
       string sid = gData.getSId();
       long long hashVal = computeHash(sid);
       int idx = 0;
       bool inserted = false;
       
-      // 嘗試找到空位（最多查詢tableSize次以避免無限迴圈）不確定這樣是不是對的
-      while (idx < tableSize) {
+      // 【修改這裡】：最多只找 maxProbes 次，保證最高效率且不誤判！
+      while (idx < maxProbes) {
         int pos = quadraticProbe(hashVal, idx);
         
         if (hashTable[pos].isEmpty) {
-          // 找到空位，插入資料
           hashTable[pos].hvalue = hashVal % tableSize;
           stringToChar(sid, hashTable[pos].sId);
           stringToChar(gData.getSName(), hashTable[pos].sName);
@@ -175,7 +184,7 @@ class UniversityCatalog {
       
       if (!inserted) {
         dataSkipped++;
-        cout << "sId: " << sid << " 找不到空位\n"; //這邊demo也跑不出來 所以我也不知道怎麼寫
+        cout << "sId: " << sid << " 找不到空位\n"; 
       }
     }
     
@@ -184,11 +193,68 @@ class UniversityCatalog {
     // 計算搜尋統計
     calculateSearchStatistics(dataInserted);
     
-    // 輸出到檔案
-    outputHashTableToFile(file_num);
+    // 輸出到檔案 (共用整合版的輸出函式)
+    outputHashTableToFile("quadratic", file_num);
+  }
+
+  // [新增] 建立 Double Hashing 哈希表
+  void buildDoubleHashTable() {
+    if (info.empty() || currentFileNum == "") {
+      cout << "### Command 1 first. ###\n\n";
+      return;
+    }
+
+    int dataCount = info.size();
+    int minSize = (int)(dataCount * 1.15) + 1;
+    tableSize = findMinPrime(minSize);
+
+    // 計算最高步階：大於(資料總筆數/5)的最小質數
+    int maxStepLimit = (dataCount / 5) + 1;
+    int maxStep = findMinPrime(maxStepLimit);
+
+    hashTable.clear();
+    hashTable.resize(tableSize);
+
+    int dataInserted = 0;
+
+    for (const auto& gData : info) {
+      string sid = gData.getSId();
+      long long hashVal = computeHash(sid);
+      long long step = computeStep(sid, maxStep);
+      int idx = 0;
+      bool inserted = false;
+
+      while (idx < tableSize) {
+        int pos = (hashVal + idx * step) % tableSize;
+
+        if (hashTable[pos].isEmpty) {
+          hashTable[pos].hvalue = hashVal % tableSize;
+          stringToChar(sid, hashTable[pos].sId);
+          stringToChar(gData.getSName(), hashTable[pos].sName);
+          hashTable[pos].mean = gData.getAverage();
+          hashTable[pos].isEmpty = false;
+          inserted = true;
+          dataInserted++;
+          break;
+        }
+        idx++;
+      }
+
+      if (!inserted) {
+        cout << "sId: " << sid << " 找不到空位\n";
+      }
+    }
+
+    cout << "\nHash table has been successfully created by Double hashing   \n";
+    
+    // 計算搜尋統計 (僅現存值)
+    calculateDoubleSearchStatistics(maxStep);
+    
+    // 輸出到檔案 (共用整合版的輸出函式)
+    outputHashTableToFile("double", currentFileNum);
   }
   
-  // 計算搜尋統計
+  // 計算搜尋統計 (任務一)
   void calculateSearchStatistics(int validRecords) {
     if (validRecords == 0) {
       cout << "No valid records to search\n";
@@ -198,7 +264,8 @@ class UniversityCatalog {
     double successfulTotal = 0;
     int successfulCount = 0;
     
-    // 搜尋存在的值：計算每個有效記錄的查詢次數
+    int maxProbes = (tableSize + 1) / 2;
+    
     for (int i = 0; i < tableSize; i++) {
       if (!hashTable[i].isEmpty) {
         const char* sid_in_table = hashTable[i].sId;
@@ -206,8 +273,8 @@ class UniversityCatalog {
         int idx = 0;
         int comparisons = 0;
         
-        // 使用平方探測查找該記錄
-        while (idx < tableSize) {
+        // 【修改這裡】
+        while (idx < maxProbes) {
           int pos = quadraticProbe(hashVal, idx);
           comparisons++;
           if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid_in_table) == 0) {
@@ -230,8 +297,8 @@ class UniversityCatalog {
       int comparisons = 0;
       
       // 用平方探測找第一個空位
-      while (idx < tableSize) {
-        int pos = (startPos + idx * idx) % tableSize;
+      while (idx < maxProbes) {
+        int pos = quadraticProbe(startPos, idx);
         if (hashTable[pos].isEmpty) {
           comparisons++;
           break;
@@ -248,29 +315,66 @@ class UniversityCatalog {
     cout << "unsuccessful search: " << unsuccessfulAvg << " comparisons on average\n";
     cout << "successful search: " << successfulAvg << " comparisons on average\n";
   }
+
+  // [新增] 計算任務二的搜尋統計
+  void calculateDoubleSearchStatistics(int maxStep) {
+    double successfulTotal = 0;
+    int successfulCount = 0;
+
+    for (int i = 0; i < tableSize; i++) {
+      if (!hashTable[i].isEmpty) {
+        const char* sid_in_table = hashTable[i].sId;
+        long long hashVal = computeHash(sid_in_table);
+        long long step = computeStep(sid_in_table, maxStep);
+        int idx = 0;
+        int comparisons = 0;
+        
+        while (idx < tableSize) {
+          int pos = (hashVal + idx * step) % tableSize;
+          comparisons++;
+          if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid_in_table) == 0) {
+            break;
+          }
+          idx++;
+        }
+        successfulTotal += comparisons;
+        successfulCount++;
+      }
+    }
+
+    double successfulAvg = (successfulCount > 0) ? successfulTotal / successfulCount : 0;
+    cout << fixed << setprecision(4);
+    cout << "successful search: " << successfulAvg << " comparisons on average\n";
+  }
   
-  // 輸出哈希表到檔案
-  void outputHashTableToFile(string file_num) {
-    string output_path = "quadratic" + file_num + ".txt";
+  // [合併與修正] 輸出結果至文字檔 (整合任務一與任務二)
+  void outputHashTableToFile(string prefix, string file_num) {
+    string output_path = prefix + file_num + ".txt";
     ofstream out(output_path);
     
-    out << "--- Hash table created by Quadratic probing ---\n";
+    // 注意：Double hashing 的標題後面有 4 個隱藏的半形空格，以符合範例格式
+    if(prefix == "quadratic")
+        out << "--- Hash table created by Quadratic probing ---\n";
+    else
+        out << "--- Hash table created by Double hashing    ---\n";
     
     for (int i = 0; i < tableSize; i++) {
-      out << "[ " << i << "]";
-      if (!hashTable[i].isEmpty) {
-        out << " " << hashTable[i].hvalue << ", " 
-            << hashTable[i].sId << ", " 
-            << hashTable[i].sName << ", " 
-            << fixed << setprecision(2) << hashTable[i].mean;
-      }
-      out << "\n";
+        // [  0], [ 11] 固定 3 格靠右對齊
+        out << "[" << setw(3) << right << i << "] ";
+        
+        if (!hashTable[i].isEmpty) {
+            // 移除 fixed 與 setprecision，讓 C++ 預設處理小數點，並嚴格設定欄位寬度
+            out << setw(10) << hashTable[i].hvalue << "," 
+                << setw(11) << hashTable[i].sId << "," 
+                << setw(11) << hashTable[i].sName << "," 
+                << setw(11) << hashTable[i].mean;
+        }
+        out << "\n";
     }
-    out << "-----------------------------------------------\n";
+    // 嚴格對齊範例輸出的底部虛線（開頭有 1 個半形空格，共 53 個減號）
+    out << " -----------------------------------------------------\n";
     out.close();
   }
-
-  
 
 // 讀取文本檔案並解析數據
   void readTextSaveBin(string file_num) {
@@ -316,14 +420,12 @@ class UniversityCatalog {
     string bin_path = "input" + file_num + ".bin";
     ofstream out(bin_path, ios::binary);
     for (GraduateInfo g : info) {
-        out.write((char*)&g, sizeof(GraduateInfo)); // 必須將位址轉型為 char*，並提供資料大小 !!!
+        out.write((char*)&g, sizeof(GraduateInfo)); 
     }
     out.close();
   
   }
   
- 
-
 void doTask(string cmd) { 
   if (cmd == "1") {
     string file_num;
@@ -335,11 +437,8 @@ void doTask(string cmd) {
         break;
     }
   } else if (cmd == "2") {
-    
-  } else if (cmd == "3") { 
-   
-  } else if (cmd == "4") {
-    
+    // [連結] 呼叫任務二
+    buildDoubleHashTable();
   }
 }
 
@@ -358,16 +457,10 @@ int main() {
       uc.doTask(cmd);
     }  else if (cmd == "2"){ 
       uc.doTask(cmd);
-    } else if (cmd == "3") {
-      uc.doTask(cmd);
-    } else if (cmd == "4") {
-      uc.doTask(cmd);
-    } else cout << "\nCommand does not exist!\n";
+    } else cout << "\nCommand does not exist!\n\n";
     cout << endl;  
   }
 }
-
-
 
 string ReadInput() {
   string input;
