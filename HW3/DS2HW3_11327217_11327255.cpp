@@ -383,6 +383,7 @@ class UniversityCatalog {
     
     if (in.fail()) {
         cout << "\n### " << txt_path << " does not exist! ###\n\n";
+        currentFileNum = "";
         return;
     }
     
@@ -432,7 +433,11 @@ void doTask(string cmd) {
     while (1) {
         cout << "\nInput a file number ([0] Quit): ";
         file_num = ReadInput();
-        if (file_num == "0") break;
+        if (file_num == "0") {
+          printf("\n");
+          break;
+        }
+        
         buildQuadraticHashTable(file_num);
         break;
     }
