@@ -79,6 +79,8 @@ private:
     vector<HashItem> hashTable;   // 雜湊表本身
     int tableSize;                // 雜湊表的大小
     string currentFileNum;        // 記憶目前讀取的檔案編號，供任務二輸出使用
+    int currentProbeMethod;       // 0: Quadratic Probing, 1: Double Hashing
+    int maxStepForDoubleHash;     // 雙重雜湊的最大步階
   
 public:
     // 初始化系統狀態，清空舊資料
@@ -87,6 +89,8 @@ public:
         hashTable.clear();
         tableSize = 0;
         currentFileNum = "";
+        currentProbeMethod = -1;
+        maxStepForDoubleHash = 0;
     }
 
     int getInfoCount() {
@@ -179,18 +183,21 @@ public:
                     dataInserted++;
                     break;
                 }
+               
                 idx++; // 發生碰撞，增加探測次數
             }
             
             if (!inserted) {
                 dataSkipped++;
-                cout << "sId: " << sid << " 找不到空位\n"; 
+                cout << "### Failed at [" << i << "]. ###\n"; 
             }
         }
         
         cout << "\nHash table has been successfully created by Quadratic probing\n";
         calculateSearchStatistics(dataInserted);
         outputHashTableToFile("quadratic", file_num);
+        currentProbeMethod = 0; // 記錄使用二次探測
+        searchStudentLoop();
     }
 
     // 任務二：建立雙重雜湊 (Double Hashing) 雜湊表
@@ -248,6 +255,9 @@ public:
         cout << "\nHash table has been successfully created by Double hashing   \n";
         calculateDoubleSearchStatistics(maxStep);
         outputHashTableToFile("double", currentFileNum);
+        currentProbeMethod = 1; // 記錄使用雙重雜湊
+        maxStepForDoubleHash = maxStep;
+        searchStudentLoop();
     }
     
     // 計算任務一 (二次探測) 的搜尋成功與失敗平均次數
@@ -303,7 +313,7 @@ public:
             unsuccessfulTotal += comparisons;
         }
         
-        double unsuccessfulAvg = (tableSize > 0) ? unsuccessfulTotal / tableSize - 1.0 : 0;
+        double unsuccessfulAvg = (tableSize > 0) ? (unsuccessfulTotal) / tableSize - 1.0 : 0;
         
         cout << fixed << setprecision(4);
         cout << "unsuccessful search: " << unsuccessfulAvg << " comparisons on average\n";
@@ -364,6 +374,94 @@ public:
         }
         out << " -----------------------------------------------------\n";
         out.close();
+    }
+    
+    // 二次探測搜尋特定學生
+    void searchByQuadraticProbing(string sid) {
+        long long hashVal = computeHash(sid);
+        int idx = 0;
+        int maxProbes = (tableSize + 1) / 2;
+        int probeCount = 0;
+        
+        while (idx < maxProbes) {
+            int pos = quadraticProbe(hashVal, idx);
+            probeCount++;
+            
+            if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid.c_str()) == 0) {
+                // 找到了
+                cout << "{ " << hashTable[pos].sId << ", " 
+                     << hashTable[pos].sName << ", " 
+                     << fixed << setprecision(2) << hashTable[pos].mean 
+                     << " } is found after " << probeCount << " probes.\n\n";
+                return;
+            }
+            
+            if (hashTable[pos].isEmpty) {
+                // 遇到空位，表示沒有找到
+                cout << "\nsId: " << sid << " is not found after " << probeCount << " probes.\n\n";
+                return;
+            }
+            
+            idx++;
+        }
+        
+        cout << "sId: " << sid << " is not found after " << probeCount << " probes.\n";
+    }
+    
+    // 雙重雜湊搜尋特定學生
+    void searchByDoubleHashing(string sid) {
+        long long hashVal = computeHash(sid);
+        long long step = computeStep(sid, maxStepForDoubleHash);
+        int idx = 0;
+        int probeCount = 0;
+        
+        while (idx < tableSize) {
+            int pos = (hashVal + idx * step) % tableSize;
+            probeCount++;
+            
+            if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid.c_str()) == 0) {
+                // 找到了
+                cout << "{ " << hashTable[pos].sId << ", " 
+                     << hashTable[pos].sName << ", " 
+                     << fixed << setprecision(2) << hashTable[pos].mean 
+                     << " } is found after " << probeCount << " probes.\n";
+                return;
+            }
+            
+            if (hashTable[pos].isEmpty) {
+                // 遇到空位，表示沒有找到
+                cout << "sId: " << sid << " is not found after " << probeCount << " probes.\n";
+                return;
+            }
+            
+            idx++;
+        }
+        
+        cout << "sId: " << sid << " is not found after " << probeCount << " probes.\n";
+    }
+    
+    // 搜尋學生訪問迴圈
+    void searchStudentLoop() {
+        if (currentProbeMethod == -1) {
+            cout << "### Command 1 first. ###\n\n";
+            return;
+        }
+        
+        while (true) {
+            cout << "Input a student ID to search ([0] Quit): ";
+            string sid = ReadInput();
+            
+            if (sid == "0") {
+                printf("\n");
+                break;
+            }
+            
+            if (currentProbeMethod == 0) {
+                searchByQuadraticProbing(sid);
+            } else if (currentProbeMethod == 1) {
+                searchByDoubleHashing(sid);
+            }
+        }
     }
 
     // 任務零：讀取文字檔並解析儲存為二進位檔
