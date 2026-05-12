@@ -388,24 +388,33 @@ public:
             probeCount++;
             
             if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid.c_str()) == 0) {
-                // 找到了
-                cout << "{ " << hashTable[pos].sId << ", " 
-                     << hashTable[pos].sName << ", " 
-                     << fixed << setprecision(2) << hashTable[pos].mean 
-                     << " } is found after " << probeCount << " probes.\n\n";
-                return;
-            }
+    // 找到了
+              cout << "\n{ " << hashTable[pos].sId << ", " 
+                  << hashTable[pos].sName << ", ";
+                  
+              // 判斷 mean 是否為整數 (例如 85.00 == 85)
+              if (hashTable[pos].mean == (int)hashTable[pos].mean) {
+                  // 如果是整數，轉型成整數輸出，就不會有小數點
+                  cout << (int)hashTable[pos].mean; 
+              } else {
+                  // 如果帶有小數，則強制保留兩位小數
+                  cout << fixed << setprecision(2) << hashTable[pos].mean;
+              }
+              
+              cout << " } is found after " << probeCount << " probes.\n\n";
+              return;
+          }
             
             if (hashTable[pos].isEmpty) {
                 // 遇到空位，表示沒有找到
-                cout << "\nsId: " << sid << " is not found after " << probeCount << " probes.\n\n";
+                cout << "\n" << sid << " is not found after " << probeCount << " probes.\n\n";
                 return;
             }
             
             idx++;
         }
         
-        cout << "sId: " << sid << " is not found after " << probeCount << " probes.\n";
+        cout << "\n\n" << sid << " is not found after " << probeCount << " probes.\n\n";
     }
     
     // 雙重雜湊搜尋特定學生
@@ -421,23 +430,30 @@ public:
             
             if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid.c_str()) == 0) {
                 // 找到了
-                cout << "{ " << hashTable[pos].sId << ", " 
-                     << hashTable[pos].sName << ", " 
-                     << fixed << setprecision(2) << hashTable[pos].mean 
-                     << " } is found after " << probeCount << " probes.\n";
+                cout << "\n{ " << hashTable[pos].sId << ", " 
+                    << hashTable[pos].sName << ", ";
+                    
+                // 判斷 mean 是否為整數
+                if (hashTable[pos].mean == (int)hashTable[pos].mean) {
+                    cout << (int)hashTable[pos].mean; 
+                } else {
+                    cout << fixed << setprecision(2) << hashTable[pos].mean;
+                }
+                
+                cout << " } is found after " << probeCount << " probes.\n\n";
                 return;
             }
             
             if (hashTable[pos].isEmpty) {
                 // 遇到空位，表示沒有找到
-                cout << "sId: " << sid << " is not found after " << probeCount << " probes.\n";
+                cout << "\n" << sid << " is not found after " << probeCount << " probes.\n\n";
                 return;
             }
             
             idx++;
         }
         
-        cout << "sId: " << sid << " is not found after " << probeCount << " probes.\n";
+        cout << "\n\n" << sid << " is not found after " << probeCount << " probes.\n\n";
     }
     
     // 搜尋學生訪問迴圈
