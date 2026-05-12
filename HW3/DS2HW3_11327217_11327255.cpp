@@ -156,6 +156,7 @@ public:
         
         int dataInserted = 0;
         int dataSkipped = 0;
+        double successfulTotal = 0;
         
         // 二次探測的最高探測次數限制，防陷入死迴圈
         int maxProbes = (tableSize + 1) / 2;
@@ -167,11 +168,13 @@ public:
             string sid = gData.getSId();
             long long hashVal = computeHash(sid);
             int idx = 0;
+            int probes = 0;
             bool inserted = false;
             
             // 處理碰撞：尋找空位
             while (idx < maxProbes) {
                 int pos = quadraticProbe(hashVal, idx);
+                probes++;
                 
                 if (hashTable[pos].isEmpty) {
                     hashTable[pos].hvalue = hashVal % tableSize;
@@ -181,6 +184,7 @@ public:
                     hashTable[pos].isEmpty = false;
                     inserted = true;
                     dataInserted++;
+                    successfulTotal += probes; // 累加成功插入的探測次數
                     break;
                 }
                
@@ -194,7 +198,7 @@ public:
         }
         
         cout << "\nHash table has been successfully created by Quadratic probing\n";
-        calculateSearchStatistics(dataInserted);
+        calculateSearchStatistics(dataInserted, successfulTotal);
         outputHashTableToFile("quadratic", file_num);
         currentProbeMethod = 0; // 記錄使用二次探測
         searchStudentLoop();
@@ -261,59 +265,33 @@ public:
     }
     
     // 計算任務一 (二次探測) 的搜尋成功與失敗平均次數
-    void calculateSearchStatistics(int validRecords) {
+    void calculateSearchStatistics(int validRecords, double successfulTotal) {
         if (validRecords == 0) {
             cout << "No valid records to search\n";
             return;
         }
         
-        double successfulTotal = 0;
-        int successfulCount = 0;
-        int maxProbes = (tableSize + 1) / 2;
+        double successfulAvg = successfulTotal / validRecords;
         
-        // 1. 計算成功搜尋：找尋目前存在表中的每一筆資料
-        for (int i = 0; i < tableSize; i++) {
-            if (!hashTable[i].isEmpty) {
-                const char* sid_in_table = hashTable[i].sId;
-                long long hashVal = computeHash(sid_in_table);
-                int idx = 0;
-                int comparisons = 0;
-                
-                while (idx < maxProbes) {
-                    int pos = quadraticProbe(hashVal, idx);
-                    comparisons++; // 每次探測都算一次比較
-                    if (!hashTable[pos].isEmpty && strcmp(hashTable[pos].sId, sid_in_table) == 0) {
-                        break; // 找到了
-                    }
-                    idx++;
-                }
-                successfulTotal += comparisons;
-                successfulCount++;
-            }
-        }
-        
-        double successfulAvg = (successfulCount > 0) ? successfulTotal / successfulCount : 0;
-        
-        // 2. 計算失敗搜尋：從每一個位置開始找，直到遇到空位
+        // 計算失敗搜尋：從每一個位置開始找，直到遇到空位
         double unsuccessfulTotal = 0;
         
         for (int startPos = 0; startPos < tableSize; startPos++) {
             int idx = 0;
             int comparisons = 0;
             
-            while (idx < maxProbes) {
+            while (idx < tableSize) {
                 int pos = quadraticProbe(startPos, idx);
-                if (hashTable[pos].isEmpty) {
-                    comparisons++; // 檢查到空位也算一次比較
-                    break;
-                }
                 comparisons++;
+                if (hashTable[pos].isEmpty) {
+                    break; // 找到空位
+                }
                 idx++;
             }
             unsuccessfulTotal += comparisons;
         }
         
-        double unsuccessfulAvg = (tableSize > 0) ? (unsuccessfulTotal) / tableSize - 1.0 : 0;
+        double unsuccessfulAvg = (tableSize > 0) ? (unsuccessfulTotal - tableSize) / (double)tableSize : 0;
         
         cout << fixed << setprecision(4);
         cout << "unsuccessful search: " << unsuccessfulAvg << " comparisons on average\n";
