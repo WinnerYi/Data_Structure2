@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <cstring>
 using namespace std;
-
+//
 void PrintTitle();
 void SkipSpace(string &str);
 string ReadInput();
