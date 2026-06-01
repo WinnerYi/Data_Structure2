@@ -446,7 +446,7 @@ class GraphManager {
         auto internalDuration = chrono::duration_cast<chrono::milliseconds>(internalEndTime - internalStartTime);
         
         cout << "\nThe internal sort is completed. Check the initial sorted runs! \n";
-        cout << "\nNow there are " << tempFiles.size() << " runs.\n";
+        cout << "\nNow there are " << tempFiles.size() << " runs.\n\n";
         
         // 第二階段：逐步合併排序後的臨時檔案（外部排序）
         auto externalStartTime = chrono::high_resolution_clock::now();
@@ -483,6 +483,7 @@ class GraphManager {
             tempFiles = newTempFiles;
             mergePass++;
             cout << "Now there are " << tempFiles.size() << " runs.\n";
+            if (tempFiles.size() > 1) printf("\n");
         }
         
         auto externalEndTime = chrono::high_resolution_clock::now();
@@ -605,9 +606,14 @@ class GraphManager {
         // 輸出索引（最多100個）
         int count = min(100, (int)index.size());
         for (int i = 0; i < count; i++) {
-            cout << "[" << setw(3) << right << (i + 1) << "] (" 
-                 << fixed << setprecision(2) << index[i].key << ", " 
-                 << index[i].offset << ")\n";
+            cout << "[" << (i + 1) << "] (";
+            // 如果 key 等於 1.0，顯示為 1；否則顯示 2 位小數
+            if (fabs(index[i].key - 1.0) < 0.001) {
+                cout << "1";
+            } else {
+                cout << fixed << setprecision(2) << index[i].key;
+            }
+            cout << ", " << index[i].offset << ")\n";
         }
     }
 
@@ -636,20 +642,18 @@ int main() {
                 cmd[1] >= '0' && cmd[1] <= '9' && cmd[2] >= '0' && cmd[2] <= '9') {
                 // 執行外部合併排序
                 gm.externalMergeSort(cmd);
+                gm.buildPrimaryIndex(cmd);
                 
                 // 排序完成後，詢問是否繼續進行主索引構建
                 cout << "\n[0]Quit or [Any other key]continue?\n";
                 string continueCmd = ReadInput();
                 
                 if (continueCmd == "0") {
-                    cout << "程式已退出\n";
+                    
                     return 0;
-                } else {
-                    // 構建主索引
-                    gm.buildPrimaryIndex(cmd);
-                }
+                } 
             } else {
-                cout << "\nInvalid input! Please enter a 3-digit file number or 0 to quit.\n";
+                cout << "\npairs" + cmd +".bin does not exist!!!\n";
             }
         }
         cout << endl;  
