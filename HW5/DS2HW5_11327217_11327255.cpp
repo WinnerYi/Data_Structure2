@@ -1,5 +1,5 @@
 // 11327217 蔡易勳 11327255 許頌恩 
-// 資料結構與演算法：外部合併排序與主索引建構 (高效能 Block I/O 版)
+// 資料結構與演算法：外部合併排序與主索引建構
 
 #include <iostream>
 #include <string>
@@ -28,19 +28,10 @@ struct Record {
     char putID[10];  // 發送者學號（10 bytes）
     char getID[10];  // 接收者學號（10 bytes）
     float weight;    // 訊息量權重（4 bytes）
-};
-
-// 內部排序使用的包裹結構，方便自訂比較函數並保持 Stable Sort
-struct SortRecord {
-    Record rec;
-    int originalOrder; // 紀錄讀入時的順序，用於 Stable Sort
-
-    bool operator<(const SortRecord& other) const {
-        if (rec.weight != other.rec.weight) {
-            return rec.weight > other.rec.weight; // 權重大的排前面
-        }
-        // 若權重相等，原本在檔案中較早出現的排前面
-        return originalOrder < other.originalOrder; 
+    
+    // 比較函數：用於內部排序（按 weight 由大到小）
+    bool operator>(const Record& other) const {
+        return weight > other.weight;
     }
 };
 
@@ -49,49 +40,42 @@ struct SortRecord {
 // =========================================================
 class GraphManager {
  private:
-    // 輔助函數：執行兩路合併 (2-way Merge) - 具備 Block I/O 讀取優化
+    // 輔助函數：執行兩路合併 (2-way Merge)，將兩個已排序的檔案合併為一個排序檔
     void mergeTwoFiles(const string& file1, const string& file2, const string& outputFile) {
         ifstream f1(file1, ios::binary);
         ifstream f2(file2, ios::binary);
         ofstream out(outputFile, ios::binary);
         
         Record rec1, rec2;
-        bool has1 = (bool)f1.read(reinterpret_cast<char*>(&rec1), sizeof(Record));
-        bool has2 = (bool)f2.read(reinterpret_cast<char*>(&rec2), sizeof(Record));
+        bool has1 = readRecord(f1, rec1);
+        bool has2 = readRecord(f2, rec2);
         
-        // Block I/O 輸出緩衝區
-        const int OUT_BUFFER_SIZE = 300;
-        vector<Record> outBuffer;
-        outBuffer.reserve(OUT_BUFFER_SIZE);
-
-        auto flushBuffer = [&]() {
-            if (!outBuffer.empty()) {
-                out.write(reinterpret_cast<const char*>(outBuffer.data()), outBuffer.size() * sizeof(Record));
-                outBuffer.clear();
-            }
-        };
-
         // 使用類似 Merge Sort 合併陣列的雙指標寫法
         while (has1 || has2) {
             // 條件設定為 >= 確保當 weight 相同時，優先取 file1 的資料，維持 Stable Sort 特性
             if (has1 && (!has2 || rec1.weight >= rec2.weight)) {
-                outBuffer.push_back(rec1);
-                has1 = (bool)f1.read(reinterpret_cast<char*>(&rec1), sizeof(Record));
+                // 單筆 Block I/O，一次寫入 24 bytes
+                out.write(reinterpret_cast<const char*>(&rec1), sizeof(Record));
+                has1 = readRecord(f1, rec1);
             } else {
-                outBuffer.push_back(rec2);
-                has2 = (bool)f2.read(reinterpret_cast<char*>(&rec2), sizeof(Record));
-            }
-
-            if (outBuffer.size() == OUT_BUFFER_SIZE) {
-                flushBuffer();
+                // 單筆 Block I/O，一次寫入 24 bytes
+                out.write(reinterpret_cast<const char*>(&rec2), sizeof(Record));
+                has2 = readRecord(f2, rec2);
             }
         }
-        
-        flushBuffer(); // 清空剩餘的資料
         
         f1.close();
         f2.close();
         out.close();
+    }
+    
+    // 輔助函數：從二進位檔案讀取單筆 24 bytes 的紀錄
+    bool readRecord(ifstream& fin, Record& rec) {
+        // 單筆 Block I/O，一次讀取 24 bytes
+        if (fin.read(reinterpret_cast<char*>(&rec), sizeof(Record))) {
+            return true;
+        }
+        return false;
     }
 
  public:
@@ -106,63 +90,69 @@ class GraphManager {
         string inputFile = "pairs" + file_num + ".bin";
         string outputFile = "order" + file_num + ".bin";
         
-        ifstream infile(inputFile, ios::binary);
-        if (!infile) {
+        ifstream fin(inputFile, ios::binary);
+        if (!fin) {
             cout << "\n### " << inputFile << " does not exist! ###\n";
             return;
         }
+        fin.close();
         
         const int BUFFER_SIZE = 300;  // 記憶體限制：每次最多載入 300 筆紀錄
         
         // ---------------------------------------------------------
-        // 階段一：內部排序 (Internal Sort) - 使用 Block I/O 讀取
+        // 階段一：內部排序 (Internal Sort) - 分段生成排序好的 Run 檔案
         // ---------------------------------------------------------
         auto internalStartTime = chrono::high_resolution_clock::now();
         
         vector<string> tempFiles;
-        vector<SortRecord> buffer;
-        buffer.reserve(BUFFER_SIZE);
-        
+        vector<Record> buffer;
+        ifstream infile(inputFile, ios::binary);
         int fileIndex = 0;
-        Record tempRec;
-        int orderCounter = 0;
         
-        // 一次讀取完整的 24 bytes (Block I/O 概念)，取代三次細碎的 read
-        while (infile.read(reinterpret_cast<char*>(&tempRec), sizeof(Record))) {
+        Record tempRec;
+        
+        // 持續讀取直到檔案結尾
+        // 利用優化後的 readRecord 進行單筆 Block I/O 讀取
+        while (readRecord(infile, tempRec)) {
             
-            buffer.push_back({tempRec, orderCounter++});
+            buffer.push_back(tempRec);
             
             // 當緩衝區滿了，進行穩定排序 (保持權重相同者的原始次序)，並輸出為暫存檔 (.bin)
             if (buffer.size() == BUFFER_SIZE) {
-                // 使用 std::sort 搭配 originalOrder 來達成 Stable Sort 效果，速度比 stable_sort 快
-                sort(buffer.begin(), buffer.end());
+                stable_sort(buffer.begin(), buffer.end(), 
+                    [](const Record& a, const Record& b) {
+                        return a.weight > b.weight;
+                    });
                 
                 string tempFile = "temp_" + file_num + "_" + to_string(fileIndex) + ".bin";
                 tempFiles.push_back(tempFile);
                 
-                // Block I/O 寫入：把整個 Vector 記憶體區塊一次寫入硬碟
                 ofstream outtemp(tempFile, ios::binary);
-                for(const auto& sr : buffer) {
-                    outtemp.write(reinterpret_cast<const char*>(&sr.rec), sizeof(Record));
+                for (const auto& rec : buffer) {
+                    // 單筆 Block I/O，一次寫出 24 bytes
+                    outtemp.write(reinterpret_cast<const char*>(&rec), sizeof(Record));
                 }
                 outtemp.close();
                 
                 buffer.clear();
-                orderCounter = 0;
                 fileIndex++;
             }
         }
         
         // 處理未滿 BUFFER_SIZE 的最後一批殘餘紀錄
         if (!buffer.empty()) {
-            sort(buffer.begin(), buffer.end());
+            stable_sort(buffer.begin(), buffer.end(), 
+                [](const Record& a, const Record& b) {
+                    return a.weight > b.weight;
+                });
             
             string tempFile = "temp_" + file_num + "_" + to_string(fileIndex) + ".bin";
             tempFiles.push_back(tempFile);
             
             ofstream outtemp(tempFile, ios::binary);
-            for(const auto& sr : buffer) {
-                outtemp.write(reinterpret_cast<const char*>(&sr.rec), sizeof(Record));
+            for (const auto& rec : buffer) {
+                // 單筆 Block I/O，一次寫出 24 bytes
+                outtemp.write(reinterpret_cast<const char*>(&rec), sizeof(Record));
             }
             outtemp.close();
         }
@@ -200,7 +190,7 @@ class GraphManager {
                     string outputTemp = "temp_" + file_num + "_p" + to_string(mergePass) + "_" + to_string(newTempFiles.size()) + ".bin";
                     ifstream src(tempFiles[i], ios::binary);
                     ofstream dst(outputTemp, ios::binary);
-                    dst << src.rdbuf(); // 快速複製檔案技巧
+                    dst << src.rdbuf();
                     dst.close();
                     src.close();
                     newTempFiles.push_back(outputTemp);
@@ -217,10 +207,10 @@ class GraphManager {
         auto externalEndTime = chrono::high_resolution_clock::now();
         auto externalDuration = chrono::duration_cast<chrono::milliseconds>(externalEndTime - externalStartTime);
         
-        // 最終合併完成，將唯一的暫存檔重新命名（複製）為正式的輸出檔 orderXXX.bin
+        // 最終合併完成，將唯一的暫存檔轉正
         if (tempFiles.size() == 1) {
-            // 直接更名檔案 (Rename)，比用 rdbuf() 複製快上無數倍！
-            remove(outputFile.c_str()); // 確保舊檔案不存在
+            // 【優化點 2】：Rename 取代最後一輪複製
+            remove(outputFile.c_str()); // 確保目標檔不存在，避免 rename 失敗
             rename(tempFiles[0].c_str(), outputFile.c_str());
         }
         
@@ -257,13 +247,16 @@ class GraphManager {
         int offset = 0;
         float lastWeight = -1.0;
         
-        // 同樣採用 Block I/O 概念，一次讀出整個 24 bytes
-        while (fin.read(reinterpret_cast<char*>(&tempRec), sizeof(Record))) {
+        // 循序分批讀取排序檔，避免將整個檔案載入記憶體
+        // 【優化點 1】：利用優化後的 readRecord 進行單筆 Block I/O 讀取
+        while (readRecord(fin, tempRec)) {
+            
             // 當偵測到權重改變時（新權重群組的開頭），即將當下 offset 寫入索引表
             if (tempRec.weight != lastWeight) {
                 index.push_back({tempRec.weight, offset});
                 lastWeight = tempRec.weight;
             }
+            
             offset++;  // 累加紀錄筆數
         }
         
@@ -292,10 +285,6 @@ class GraphManager {
 // =========================================================
 
 int main() {
-    // 釋放 C++ 標準串流的效能束縛，大幅提升 cout 速度
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-
     GraphManager gm;  
   
     while (true) {
@@ -345,7 +334,7 @@ int main() {
         string continueCmd = ReadInput();
         
         if (continueCmd == "0") {
-            return 0; // 正式結束程式 (不另外印出結束訊息以符合測資要求)
+            return 0;
         } 
         
         cout << endl;  
@@ -364,7 +353,7 @@ string ReadInput() {
     return input;
 }
 
-// 修剪傳入字串頭尾的空白字元 (類似其他語言的 trim 函數)
+// 修剪傳入字串頭尾的空白字元
 void SkipSpace(string &str) {
     for (int i = 0; i < str.size(); i++) {
         if (str[i] != ' ') break;
