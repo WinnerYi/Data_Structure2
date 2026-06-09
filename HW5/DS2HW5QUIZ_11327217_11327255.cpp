@@ -93,7 +93,7 @@ private:
           has2 = readRecord(f2, rec2);
       }
       
-      if (outBuffer.size() == currentBufSize) {
+      if (outBuffer.size() == (size_t)currentBufSize) {
           flushBuffer();
       }
     }
@@ -111,9 +111,19 @@ private:
     return false;
   }
   
+  // 【修正】：正確清除 char array 中的 null bytes 和空白，避免亂碼
   string extractID(const char* idArray) {
-      string s(idArray, 10);
-      s.erase(s.find_last_not_of(" \n\r\t\0") + 1);
+      // 先找到第一個 null byte 或非可見字元作為結束
+      int len = 0;
+      for (int i = 0; i < 10; i++) {
+          if (idArray[i] == '\0') break;
+          if ((unsigned char)idArray[i] < 0x20) break; // 非可見字元
+          len = i + 1;
+      }
+      string s(idArray, len);
+      // 再去掉尾部空白
+      while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\r' || s.back() == '\n'))
+          s.pop_back();
       return s;
   }
 
@@ -152,7 +162,7 @@ public:
     while (readRecord(infile, tempRec)) {
       buffer.push_back({tempRec, orderCounter++});
 
-      if (buffer.size() == currentBufSize) {
+      if (buffer.size() == (size_t)currentBufSize) {
         sort(buffer.begin(), buffer.end());
 
         string tempFile =
@@ -224,12 +234,8 @@ public:
 
       tempFiles = newTempFiles;
       mergePass++;
-      // 確保換行格式符合預期
-      if (tempFiles.size() > 1) {
-          cout << "\nNow there are " << tempFiles.size() << " runs.\n";
-      } else {
-          cout << "Now there are " << tempFiles.size() << " runs.\n";
-      }
+      
+      cout << "\nNow there are " << tempFiles.size() << " runs.\n";
     }
 
     auto externalEndTime = chrono::high_resolution_clock::now();
@@ -278,7 +284,7 @@ public:
     fin.close();
 
     cout << "\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
-    cout << "Mission 2: Build the primary index \n";
+    cout << "* 2: Construct the primary index *\n";
     cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
     cout << "\n<Primary index>: (key, offset)\n";
 
@@ -291,12 +297,15 @@ public:
   }
 
   // ========== 任務三：範圍檢索與建立輔助索引 ==========
+  // 【修正】：資料是降序排列(weight 大 -> 小)，搜尋邏輯須對應調整
   void buildSecondaryIndex(float min_w, float max_w) {
       secondaryIndex.clear(); 
       
+      // primaryIndex 是降序：[0] 最大值, [last] 最小值
+      // 找第一個 key <= max_w 的 entry 作為起點
       int start_offset = -1;
       for (const auto& entry : primaryIndex) {
-          if (entry.key <= max_w + 1e-5) { 
+          if (entry.key <= max_w + 1e-5f) { 
               start_offset = entry.offset;
               break;
           }
@@ -309,7 +318,7 @@ public:
       }
 
       ifstream fin(sortedFile, ios::binary);
-      fin.seekg(start_offset * sizeof(Record), ios::beg);
+      fin.seekg((long long)start_offset * sizeof(Record), ios::beg);
 
       vector<Record> buffer(currentBufSize);
       int absolute_offset = start_offset;
@@ -322,12 +331,14 @@ public:
           if (count == 0) break;
 
           for (int i = 0; i < count; ++i) {
-              if (buffer[i].weight < min_w - 1e-5) {
+              float w = buffer[i].weight;
+              // 資料降序：遇到比 min_w 小的就可以停了
+              if (w < min_w - 1e-5f) {
                   done = true;
                   break;
               }
-              
-              if (buffer[i].weight <= max_w + 1e-5) {
+              // 在 [min_w, max_w] 範圍內才收錄
+              if (w >= min_w - 1e-5f && w <= max_w + 1e-5f) {
                   string putID = extractID(buffer[i].putID);
                   secondaryIndex[putID].push_back(absolute_offset);
                   total_records++;
@@ -337,13 +348,15 @@ public:
       }
       fin.close();
 
-      cout << "There are " << total_records << " records in total.\n";
+      cout << "\nThere are " << total_records << " records in total.\n";
       cout << "There are " << secondaryIndex.size() << " senders in total.\n";
+      
       int seq = 1;
       for (const auto& pair : secondaryIndex) {
-          // 【修改點1】：精確使用 Tab (\t) 對齊
-          cout << "[" << setw(4) << seq++ << "]   " 
-               << pair.first << "\t   " << pair.second.size() << "\n";
+          // 【修正】：']' 後直接 setw(11) right（自帶空格padding），tab 後 2 空格
+          cout << "[" << setw(4) << seq++ << "]"
+               << setw(11) << right << pair.first
+               << "\t" << setw(5) << right << pair.second.size() << "\n";
       }
   }
 
@@ -361,7 +374,7 @@ public:
       
       int seq = 1;
       for (int offset : offsets) {
-          fin.seekg(offset * sizeof(Record), ios::beg);
+          fin.seekg((long long)offset * sizeof(Record), ios::beg);
           Record rec;
           fin.read(reinterpret_cast<char*>(&rec), sizeof(Record));
           
@@ -397,7 +410,10 @@ int main() {
     }
 
     ProcessMission3And4(gm, new_buffer_size);
-    // 【修改點2】：確保完成後不印多餘空行，直接進入下一輪 while
+
+    cout << "\n[0]Quit or [Any other key]continue?\n";
+    string continueCmd = ReadInput();
+    if (continueCmd == "0") return 0;
   }
   return 0;
 }
@@ -448,7 +464,7 @@ bool ProcessMission1And2(GraphManager &gm, int buffer_size) {
 
     bool fileExists = false;
 
-    if (cmd.length() == 3 && cmd[0] >= '0' && cmd[0] <= '9' && cmd[1] >= '0' &&
+    if ((cmd.length() == 3 || cmd.length() == 4) && cmd[0] >= '0' && cmd[0] <= '9' && cmd[1] >= '0' &&
         cmd[1] <= '9' && cmd[2] >= '0' && cmd[2] <= '9') {
       string filename = "pairs" + cmd + ".bin";
       ifstream testFile(filename, ios::binary);
@@ -469,37 +485,41 @@ bool ProcessMission1And2(GraphManager &gm, int buffer_size) {
   }
 }
 
+// 【修正】：使用 cout << "\n" 讓錯誤訊息換行，符合 answer 格式
 void GetRangeSearchValues(float &f_num1, float &f_num2) {
-  string input;
-  while (true) {
-    input = ReadInput();
-    try {
-        f_num1 = stof(input);
-        if (f_num1 < 0.01 || f_num1 > 1.00) {
-          cout << "### It is NOT in [0.01,1] ###\n";
-          cout << "\nInput a floating number in [0.01, 1]: ";
-          continue;
-        }
-        break;
-    } catch (...) {
-        cout << "### It is NOT in [0.01,1] ###\n";
-        cout << "\nInput a floating number in [0.01, 1]: ";
-    }
-  }
   while (true) {
     cout << "Input a floating number in [0.01, 1]: ";
-    input = ReadInput();
+    string line = ReadInput();
     try {
-        f_num2 = stof(input);
-        if (f_num2 < 0.01 || f_num2 > 1.00) {
-          cout << "### It is NOT in [0.01,1] ###\n";
-          cout << "\nInput a floating number in [0.01, 1]: ";
-          continue;
+        size_t pos;
+        float val = stof(line, &pos);
+        if (pos != line.size()) throw invalid_argument("");
+        if (val < 0.01f || val > 1.00f) {
+            cout << "\n### It is NOT in [0.01,1] ###\n\n";
+            continue;
         }
+        f_num1 = val;
         break;
     } catch (...) {
-        cout << "### It is NOT in [0.01,1] ###\n";
-        cout << "\nInput a floating number in [0.01, 1]: ";
+        cout << "\n### It is NOT in [0.01,1] ###\n\n";
+    }
+  }
+
+  while (true) {
+    cout << "\nInput a floating number in [0.01, 1]: ";
+    string line = ReadInput();
+    try {
+        size_t pos;
+        float val = stof(line, &pos);
+        if (pos != line.size()) throw invalid_argument("");
+        if (val < 0.01f || val > 1.00f) {
+            cout << "\n### It is NOT in [0.01,1] ###\n\n";
+            continue;
+        }
+        f_num2 = val;
+        break;
+    } catch (...) {
+        cout << "\n### It is NOT in [0.01,1] ###\n\n";
     }
   }
 }
@@ -524,11 +544,9 @@ void ProcessMission3And4(GraphManager &gm, int buffer_size) {
             gm.searchSecondaryIndex(m4cmd);
         }
         
-        // 【修改點3】：拔除 \n\n，僅印出所需文字，讓下一次迴圈能完美接上
         cout << "\n[3]Quit or [Any other key]continue?\n";
         string m3cmd = ReadInput();
         if (m3cmd == "3") {
-            cout << "\n"; // 退出任務三時才換行，以接續最外層迴圈
             break;
         }
     }
@@ -549,7 +567,7 @@ string ReadInput() {
 }
 
 void SkipSpace(string &str) {
-  for (int i = 0; i < str.size(); i++) {
+  for (int i = 0; i < (int)str.size(); i++) {
     if (str[i] != ' ')
       break;
     if (str[i] == ' ') {
@@ -586,9 +604,8 @@ void PrintMission1() {
 }
 
 void PrintMission3() {
-  cout << "##################################\n";
+  cout << "\n##################################\n";
   cout << "* 3: Range search to build index *\n";
   cout << "##################################\n\n";
   cout << "Input two values in (0,1] for range search.\n\n";
-  cout << "Input a floating number in [0.01, 1]: ";
 }
