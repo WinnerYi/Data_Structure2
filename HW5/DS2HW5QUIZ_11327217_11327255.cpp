@@ -1,5 +1,5 @@
 // 11327217 蔡易勳 11327255 許頌恩
-// 資料結構與演算法：外部合併排序與主索引建構
+// 資料結構與演算法：外部合併排序與主索引建構、範圍檢索與輔助索引
 
 #include <algorithm>
 #include <chrono>
@@ -9,42 +9,61 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
 using namespace std;
 
 // ========== 全域輔助函式宣告 ==========
-void PrintTitle();           // 顯示主選單與輸入提示
-void SkipSpace(string &str); // 移除字串前後的多餘空格
-string ReadInput();          // 讀取並處理使用者輸入的整行字串
+void PrintTitle();           
+void SkipSpace(string &str); 
+string ReadInput();          
 void PrintMission1();
 void PrintMission3();
 
-// 新增的拆分函式
 int GetBufferSize();
 bool ProcessMission1And2(class GraphManager &gm, int buffer_size);
 void GetRangeSearchValues(float &f_num1, float &f_num2);
+void ProcessMission3And4(class GraphManager &gm, int buffer_size);
 
 // =========================================================
 // 資料結構定義區
 // =========================================================
 
-// 訊息記錄結構：用於外部合併排序時，作為暫存在緩衝區的資料單位
-// 10 + 10 + 4 = 24 bytes，天然符合記憶體對齊，不會產生 struct padding
 struct Record {
-  char putID[10]; // 發送者學號（10 bytes）
-  char getID[10]; // 接收者學號（10 bytes）
-  float weight;   // 訊息量權重（4 bytes）
+  char putID[10]; 
+  char getID[10]; 
+  float weight;   
 
-  // 比較函數：用於內部排序（按 weight 由大到小）
   bool operator>(const Record &other) const { return weight > other.weight; }
 };
 
+struct SortRecord {
+    Record rec;
+    int originalOrder; 
+
+    bool operator<(const SortRecord& other) const {
+        if (rec.weight != other.rec.weight) {
+            return rec.weight > other.rec.weight; 
+        }
+        return originalOrder < other.originalOrder; 
+    }
+};
+
+struct IndexEntry {
+    float key;
+    int offset;
+};
+
 // =========================================================
-// 核心邏輯類別：負責外部合併排序與主索引構建
+// 核心邏輯類別
 // =========================================================
 class GraphManager {
 private:
-  // 輔助函數：執行兩路合併 (2-way Merge)，將兩個已排序的檔案合併為一個排序檔
+  int currentBufSize;                     
+  string sortedFile;                      
+  vector<IndexEntry> primaryIndex;        
+  map<string, vector<int>> secondaryIndex;
+
   void mergeTwoFiles(const string &file1, const string &file2,
                      const string &outputFile) {
     ifstream f1(file1, ios::binary);
@@ -55,41 +74,63 @@ private:
     bool has1 = readRecord(f1, rec1);
     bool has2 = readRecord(f2, rec2);
 
-    // 使用類似 Merge Sort 合併陣列的雙指標寫法
+    vector<Record> outBuffer;
+    outBuffer.reserve(currentBufSize);
+
+    auto flushBuffer = [&]() {
+        if (!outBuffer.empty()) {
+            out.write(reinterpret_cast<const char*>(outBuffer.data()), outBuffer.size() * sizeof(Record));
+            outBuffer.clear();
+        }
+    };
+
     while (has1 || has2) {
-      // 條件設定為 >= 確保當 weight 相同時，優先取 file1 的資料，維持 Stable
-      // Sort 特性
       if (has1 && (!has2 || rec1.weight >= rec2.weight)) {
-        out.write(reinterpret_cast<const char *>(&rec1), sizeof(Record));
-        has1 = readRecord(f1, rec1);
+          outBuffer.push_back(rec1);
+          has1 = readRecord(f1, rec1);
       } else {
-        out.write(reinterpret_cast<const char *>(&rec2), sizeof(Record));
-        has2 = readRecord(f2, rec2);
+          outBuffer.push_back(rec2);
+          has2 = readRecord(f2, rec2);
+      }
+      
+      if (outBuffer.size() == currentBufSize) {
+          flushBuffer();
       }
     }
+    flushBuffer(); 
 
     f1.close();
     f2.close();
     out.close();
   }
 
-  // 輔助函數：從二進位檔案讀取單筆 24 bytes 的紀錄
   bool readRecord(ifstream &fin, Record &rec) {
     if (fin.read(reinterpret_cast<char *>(&rec), sizeof(Record))) {
       return true;
     }
     return false;
   }
+  
+  string extractID(const char* idArray) {
+      string s(idArray, 10);
+      s.erase(s.find_last_not_of(" \n\r\t\0") + 1);
+      return s;
+  }
 
 public:
-  GraphManager() {}
+  GraphManager() : currentBufSize(300) {}
+  
+  void setBufferSize(int size) {
+      currentBufSize = size;
+  }
 
-  // ========== 任務一：外部合併排序 (External Merge Sort) ==========
+  // ========== 任務一：外部合併排序 ==========
   void externalMergeSort(string file_num, int new_buffer_size) {
+    setBufferSize(new_buffer_size);
     auto totalStartTime = chrono::high_resolution_clock::now();
 
     string inputFile = "pairs" + file_num + ".bin";
-    string outputFile = "order" + file_num + ".bin";
+    sortedFile = "order" + file_num + ".bin";
 
     ifstream fin(inputFile, ios::binary);
     if (!fin) {
@@ -98,53 +139,48 @@ public:
     }
     fin.close();
 
-    // ---------------------------------------------------------
-    // 階段一：內部排序 (Internal Sort) - 分段生成排序好的 Run 檔案
-    // ---------------------------------------------------------
     auto internalStartTime = chrono::high_resolution_clock::now();
 
     vector<string> tempFiles;
-    vector<Record> buffer;
+    vector<SortRecord> buffer;
+    buffer.reserve(currentBufSize);
     ifstream infile(inputFile, ios::binary);
     int fileIndex = 0;
     Record tempRec;
+    int orderCounter = 0;
 
     while (readRecord(infile, tempRec)) {
-      buffer.push_back(tempRec);
+      buffer.push_back({tempRec, orderCounter++});
 
-      if (buffer.size() == new_buffer_size) {
-        stable_sort(buffer.begin(), buffer.end(),
-                    [](const Record &a, const Record &b) {
-                      return a.weight > b.weight;
-                    });
+      if (buffer.size() == currentBufSize) {
+        sort(buffer.begin(), buffer.end());
 
         string tempFile =
             "temp_" + file_num + "_" + to_string(fileIndex) + ".bin";
         tempFiles.push_back(tempFile);
 
         ofstream outtemp(tempFile, ios::binary);
-        for (const auto &rec : buffer) {
-          outtemp.write(reinterpret_cast<const char *>(&rec), sizeof(Record));
+        for (const auto &sr : buffer) {
+          outtemp.write(reinterpret_cast<const char *>(&sr.rec), sizeof(Record));
         }
         outtemp.close();
 
         buffer.clear();
+        orderCounter = 0;
         fileIndex++;
       }
     }
 
     if (!buffer.empty()) {
-      stable_sort(
-          buffer.begin(), buffer.end(),
-          [](const Record &a, const Record &b) { return a.weight > b.weight; });
+      sort(buffer.begin(), buffer.end());
 
       string tempFile =
           "temp_" + file_num + "_" + to_string(fileIndex) + ".bin";
       tempFiles.push_back(tempFile);
 
       ofstream outtemp(tempFile, ios::binary);
-      for (const auto &rec : buffer) {
-        outtemp.write(reinterpret_cast<const char *>(&rec), sizeof(Record));
+      for (const auto &sr : buffer) {
+        outtemp.write(reinterpret_cast<const char *>(&sr.rec), sizeof(Record));
       }
       outtemp.close();
     }
@@ -155,13 +191,9 @@ public:
     auto internalDuration = chrono::duration_cast<chrono::milliseconds>(
         internalEndTime - internalStartTime);
 
-    cout << "\nThe internal sort is completed. Check the initial sorted runs! "
-            "\n";
-    cout << "\nNow there are " << tempFiles.size() << " runs.\n\n";
+    cout << "\nThe internal sort is completed. Check the initial sorted runs! \n";
+    cout << "\nNow there are " << tempFiles.size() << " runs.\n";
 
-    // ---------------------------------------------------------
-    // 階段二：外部合併 (External Merge) - 兩兩合併暫存檔直到剩下一個
-    // ---------------------------------------------------------
     auto externalStartTime = chrono::high_resolution_clock::now();
 
     int mergePass = 0;
@@ -192,9 +224,12 @@ public:
 
       tempFiles = newTempFiles;
       mergePass++;
-      cout << "Now there are " << tempFiles.size() << " runs.\n";
-      if (tempFiles.size() > 1)
-        printf("\n");
+      // 確保換行格式符合預期
+      if (tempFiles.size() > 1) {
+          cout << "\nNow there are " << tempFiles.size() << " runs.\n";
+      } else {
+          cout << "Now there are " << tempFiles.size() << " runs.\n";
+      }
     }
 
     auto externalEndTime = chrono::high_resolution_clock::now();
@@ -202,8 +237,8 @@ public:
         externalEndTime - externalStartTime);
 
     if (tempFiles.size() == 1) {
-      remove(outputFile.c_str());
-      rename(tempFiles[0].c_str(), outputFile.c_str());
+      remove(sortedFile.c_str());
+      rename(tempFiles[0].c_str(), sortedFile.c_str());
     }
 
     auto totalEndTime = chrono::high_resolution_clock::now();
@@ -218,30 +253,23 @@ public:
          << " ms\n";
   }
 
-  // ========== 任務二：構建主索引 (Primary Index) ==========
+  // ========== 任務二：構建主索引 ==========
   void buildPrimaryIndex(string file_num) {
-    string sortedFile = "order" + file_num + ".bin";
-
     ifstream fin(sortedFile, ios::binary);
     if (!fin) {
       cout << "\n### " << sortedFile << " does not exist! ###\n";
       cout << "Please run external sort first!\n";
       return;
     }
-
-    struct IndexEntry {
-      float key;
-      int offset;
-    };
-
-    vector<IndexEntry> index;
+    
+    primaryIndex.clear(); 
     Record tempRec;
     int offset = 0;
     float lastWeight = -1.0;
 
     while (readRecord(fin, tempRec)) {
       if (tempRec.weight != lastWeight) {
-        index.push_back({tempRec.weight, offset});
+        primaryIndex.push_back({tempRec.weight, offset});
         lastWeight = tempRec.weight;
       }
       offset++;
@@ -254,12 +282,95 @@ public:
     cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
     cout << "\n<Primary index>: (key, offset)\n";
 
-    int count = min(100, (int)index.size());
+    int count = min(100, (int)primaryIndex.size());
     for (int i = 0; i < count; i++) {
       cout << "[" << (i + 1) << "] (";
-      cout << defaultfloat << setprecision(2) << index[i].key;
-      cout << ", " << index[i].offset << ")\n";
+      cout << defaultfloat << setprecision(2) << primaryIndex[i].key;
+      cout << ", " << primaryIndex[i].offset << ")\n";
     }
+  }
+
+  // ========== 任務三：範圍檢索與建立輔助索引 ==========
+  void buildSecondaryIndex(float min_w, float max_w) {
+      secondaryIndex.clear(); 
+      
+      int start_offset = -1;
+      for (const auto& entry : primaryIndex) {
+          if (entry.key <= max_w + 1e-5) { 
+              start_offset = entry.offset;
+              break;
+          }
+      }
+      
+      if (start_offset == -1) {
+          cout << "There are 0 records in total.\n";
+          cout << "There are 0 senders in total.\n";
+          return;
+      }
+
+      ifstream fin(sortedFile, ios::binary);
+      fin.seekg(start_offset * sizeof(Record), ios::beg);
+
+      vector<Record> buffer(currentBufSize);
+      int absolute_offset = start_offset;
+      bool done = false;
+      int total_records = 0;
+
+      while (!done && fin) {
+          fin.read(reinterpret_cast<char*>(buffer.data()), currentBufSize * sizeof(Record));
+          int count = fin.gcount() / sizeof(Record);
+          if (count == 0) break;
+
+          for (int i = 0; i < count; ++i) {
+              if (buffer[i].weight < min_w - 1e-5) {
+                  done = true;
+                  break;
+              }
+              
+              if (buffer[i].weight <= max_w + 1e-5) {
+                  string putID = extractID(buffer[i].putID);
+                  secondaryIndex[putID].push_back(absolute_offset);
+                  total_records++;
+              }
+              absolute_offset++;
+          }
+      }
+      fin.close();
+
+      cout << "There are " << total_records << " records in total.\n";
+      cout << "There are " << secondaryIndex.size() << " senders in total.\n";
+      int seq = 1;
+      for (const auto& pair : secondaryIndex) {
+          // 【修改點1】：精確使用 Tab (\t) 對齊
+          cout << "[" << setw(4) << seq++ << "]   " 
+               << pair.first << "\t   " << pair.second.size() << "\n";
+      }
+  }
+
+  // ========== 任務四：使用輔助索引查找資料 ==========
+  void searchSecondaryIndex(string targetID) {
+      if (secondaryIndex.find(targetID) == secondaryIndex.end()) {
+          cout << "Sender " << targetID << " does not exist.\n";
+          return;
+      }
+
+      const auto& offsets = secondaryIndex[targetID];
+      cout << "Sender " << targetID << " has " << offsets.size() << " records.\n";
+      
+      ifstream fin(sortedFile, ios::binary);
+      
+      int seq = 1;
+      for (int offset : offsets) {
+          fin.seekg(offset * sizeof(Record), ios::beg);
+          Record rec;
+          fin.read(reinterpret_cast<char*>(&rec), sizeof(Record));
+          
+          cout << "[" << setw(3) << seq++ << "]    " 
+               << setw(10) << left << extractID(rec.getID) << right 
+               << "    " << fixed << setprecision(2) << rec.weight << "\n";
+      }
+      fin.close();
+      cout << defaultfloat;
   }
 };
 
@@ -268,29 +379,25 @@ public:
 // =========================================================
 
 int main() {
+  ios_base::sync_with_stdio(false);
+  cin.tie(NULL);
+
   GraphManager gm;
 
   while (true) {
     PrintTitle();
 
-    // 1. 取得 Buffer Size
     int new_buffer_size = GetBufferSize();
 
     cout << "\n";
     PrintMission1();
 
-    // 2. 處理檔案輸入並執行 Mission 1 & 2
-    // 如果回傳 false，代表使用者選擇 Quit，直接結束程式
     if (!ProcessMission1And2(gm, new_buffer_size)) {
       return 0;
     }
 
-    printf("\n");
-    PrintMission3();
-
-    // 3. 處理 Mission 3 的範圍搜尋輸入
-    float f_num1, f_num2;
-    GetRangeSearchValues(f_num1, f_num2);
+    ProcessMission3And4(gm, new_buffer_size);
+    // 【修改點2】：確保完成後不印多餘空行，直接進入下一輪 while
   }
   return 0;
 }
@@ -301,14 +408,24 @@ int main() {
 
 int GetBufferSize() {
   int size;
+  string input;
   while (true) {
-    cin >> size;
-    if (size < 300 || size > 60000) {
-      cout << "\n### It is NOT in [300,60000] ###\n\n";
-      cout << "Input a new buffer size in [300, 60000]: ";
-      continue;
+    input = ReadInput();
+    try {
+        size = stoi(input);
+        
+        if (size == 0) exit(0); 
+
+        if (size < 300 || size > 60000) {
+          cout << "### It is NOT in [300,60000] ###\n\n";
+          cout << "Input a new buffer size in [300, 60000]: ";
+          continue;
+        }
+        break;
+    } catch (...) {
+        cout << "### It is NOT in [300,60000] ###\n\n";
+        cout << "Input a new buffer size in [300, 60000]: ";
     }
-    break;
   }
   return size;
 }
@@ -322,16 +439,15 @@ bool ProcessMission1And2(GraphManager &gm, int buffer_size) {
       cout << "\n[0]Quit or [Any other key]continue?\n";
       string continueCmd = ReadInput();
       if (continueCmd == "0") {
-        return false; // 回傳 false 通知 main 結束程式
+        return false; 
       } else {
         cout << "\nInput the file name: [0]Quit\n";
-        continue; // 使用者不想退出，重新提示輸入檔名
+        continue; 
       }
     }
 
     bool fileExists = false;
 
-    // 防呆檢查步驟一與二：驗證檔名並確認檔案存在
     if (cmd.length() == 3 && cmd[0] >= '0' && cmd[0] <= '9' && cmd[1] >= '0' &&
         cmd[1] <= '9' && cmd[2] >= '0' && cmd[2] <= '9') {
       string filename = "pairs" + cmd + ".bin";
@@ -345,7 +461,7 @@ bool ProcessMission1And2(GraphManager &gm, int buffer_size) {
     if (fileExists) {
       gm.externalMergeSort(cmd, buffer_size);
       gm.buildPrimaryIndex(cmd);
-      return true; // 任務成功執行，回傳 true 繼續後續流程
+      return true; 
     } else {
       cout << "\npairs" << cmd << ".bin does not exist!!!\n\n";
       cout << "Input the file name: [0]Quit\n";
@@ -354,30 +470,76 @@ bool ProcessMission1And2(GraphManager &gm, int buffer_size) {
 }
 
 void GetRangeSearchValues(float &f_num1, float &f_num2) {
+  string input;
   while (true) {
-    cin >> f_num1;
-    if (f_num1 < 0.01 || f_num1 > 1) {
-      cout << "\n### It is NOT in [0.01,1] ###\n";
-      cout << "\nInput a floating number in [0.01, 1]: ";
-      continue;
+    input = ReadInput();
+    try {
+        f_num1 = stof(input);
+        if (f_num1 < 0.01 || f_num1 > 1.00) {
+          cout << "### It is NOT in [0.01,1] ###\n";
+          cout << "\nInput a floating number in [0.01, 1]: ";
+          continue;
+        }
+        break;
+    } catch (...) {
+        cout << "### It is NOT in [0.01,1] ###\n";
+        cout << "\nInput a floating number in [0.01, 1]: ";
     }
-    break;
   }
   while (true) {
-    cin >> f_num2;
-    if (f_num2 < 0.01 || f_num2 > 1) {
-      cout << "\n### It is NOT in [0.01,1] ###\n";
-      cout << "\nInput a floating number in [0.01, 1]: ";
-      continue;
+    cout << "Input a floating number in [0.01, 1]: ";
+    input = ReadInput();
+    try {
+        f_num2 = stof(input);
+        if (f_num2 < 0.01 || f_num2 > 1.00) {
+          cout << "### It is NOT in [0.01,1] ###\n";
+          cout << "\nInput a floating number in [0.01, 1]: ";
+          continue;
+        }
+        break;
+    } catch (...) {
+        cout << "### It is NOT in [0.01,1] ###\n";
+        cout << "\nInput a floating number in [0.01, 1]: ";
     }
-    break;
   }
+}
+
+void ProcessMission3And4(GraphManager &gm, int buffer_size) {
+    while (true) {
+        printf("\n");
+        PrintMission3();
+        
+        float min_w, max_w;
+        GetRangeSearchValues(min_w, max_w);
+        
+        if (min_w > max_w) swap(min_w, max_w);
+        
+        gm.buildSecondaryIndex(min_w, max_w);
+        
+        while (true) {
+            cout << "\nInput a student ID ([4] Quit): ";
+            string m4cmd = ReadInput();
+            if (m4cmd == "4") break;
+
+            gm.searchSecondaryIndex(m4cmd);
+        }
+        
+        // 【修改點3】：拔除 \n\n，僅印出所需文字，讓下一次迴圈能完美接上
+        cout << "\n[3]Quit or [Any other key]continue?\n";
+        string m3cmd = ReadInput();
+        if (m3cmd == "3") {
+            cout << "\n"; // 退出任務三時才換行，以接續最外層迴圈
+            break;
+        }
+    }
 }
 
 string ReadInput() {
   string input;
   while (true) {
-    getline(cin, input);
+    if (!getline(cin, input)) {
+        exit(0); 
+    }
     SkipSpace(input);
     if (!input.empty()) {
       break;
@@ -418,7 +580,7 @@ void PrintTitle() {
 
 void PrintMission1() {
   cout << "##################################\n";
-  cout << "Mission 1: External merge sort \n";
+  cout << "* 1. External merge sort on file *\n";
   cout << "##################################\n\n";
   cout << "Input the file name: [0]Quit\n";
 }
